@@ -1,0 +1,125 @@
+'use client'
+
+// CRITICAL: Force dynamic rendering to prevent static generation
+// These exports tell Next.js to NEVER statically generate this route
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
+export const runtime = 'nodejs'
+
+import { Suspense } from 'react'
+import dynamicImport from 'next/dynamic'
+import { useResource, useNavigation, useIsAuthenticated, useGetIdentity } from '@refinedev/core'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { Loader2Icon } from 'lucide-react'
+
+// CRITICAL: Dynamically import all pages with ssr: false AND loading: undefined
+// This prevents Next.js from analyzing them during build time
+// Using a function that returns the import ensures true lazy loading
+const createLazyComponent = (importFn) => {
+  return dynamicImport(importFn, { 
+    ssr: false,
+    loading: () => null, // No loading state during build
+  })
+}
+
+const Dashboard = createLazyComponent(() => import('../../src/pages/Dashboard.jsx'))
+const Projects = createLazyComponent(() => import('../../src/pages/Projects'))
+const ProjectDetails = createLazyComponent(() => import('../../src/pages/ProjectDetails'))
+const Team = createLazyComponent(() => import('../../src/pages/Team'))
+const TaskDetails = createLazyComponent(() => import('../../src/pages/TaskDetails'))
+const AdminPanel = createLazyComponent(() => import('../../src/pages/AdminPanel'))
+const EODReports = createLazyComponent(() => import('../../src/pages/EODReports'))
+const EODManagerView = createLazyComponent(() => import('../../src/pages/EODManagerView'))
+const LoginForm = createLazyComponent(() => import('../../src/components/LoginForm'))
+
+// Separate component that uses useSearchParams to fix Suspense requirement
+function RefinePageContent() {
+  const { resource, action, id } = useResource()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  
+  // Authentication is handled by Layout component
+  // No need to duplicate auth checks here
+
+  // Debug logging
+  if (typeof window !== 'undefined') {
+    console.log('[RefinePage] Route info:', { pathname, resource: resource?.name, action, id })
+  }
+
+  // Handle dashboard route
+  if (pathname === '/' || resource?.name === 'dashboard' || !pathname) {
+    return <Dashboard />
+  }
+
+  // Handle projects resource
+  if (resource?.name === 'projects') {
+    if (action === 'list' || pathname === '/projects') {
+      return <Projects />
+    }
+    if (action === 'show' && id) {
+      const tab = searchParams?.get('tab') || 'tasks'
+      return <ProjectDetails id={id} tab={tab} />
+    }
+    if (action === 'create') {
+      // You can create a CreateProject page or redirect
+      return <Projects />
+    }
+    if (action === 'edit' && id) {
+      // You can create an EditProject page or use ProjectDetails
+      return <ProjectDetails id={id} tab="settings" />
+    }
+  }
+
+  // Handle team resource
+  if (resource?.name === 'team' || pathname === '/team') {
+    return <Team />
+  }
+
+  // Handle admin panel
+  if (pathname === '/admin') {
+    return <AdminPanel />
+  }
+
+  // Handle EOD reports
+  if (resource?.name === 'eod-reports' || pathname === '/eod-reports') {
+    // Check if user is manager/group head - show manager view
+    const { data: user } = useGetIdentity()
+    const isManager = user?.role === 'MANAGER' || user?.role === 'GROUP_HEAD'
+    
+    if (isManager && (pathname === '/eod-reports' || pathname === '/eod-reports/manager')) {
+      return <EODManagerView />
+    }
+    
+    return <EODReports />
+  }
+
+  // Handle tasks resource
+  if (resource?.name === 'tasks') {
+    if (action === 'list' || pathname === '/tasks') {
+      return <TaskDetails projectId={searchParams?.get('projectId')} taskId={searchParams?.get('taskId')} />
+    }
+    if (action === 'show' && id) {
+      return <TaskDetails projectId={searchParams?.get('projectId')} taskId={id} />
+    }
+  }
+
+  // Fallback to dashboard
+  return <Dashboard />
+}
+
+// Main component wrapped in Suspense for useSearchParams
+export default function RefinePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <Loader2Icon className="size-7 text-blue-500 animate-spin" />
+        <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
+      </div>
+    }>
+      <RefinePageContent />
+    </Suspense>
+  )
+}
+
