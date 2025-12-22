@@ -3,7 +3,7 @@
 // Force dynamic rendering - this page uses React Query hooks that require QueryClientProvider
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigation, useResource } from "@refinedev/core";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeftIcon, PlusIcon, SettingsIcon, BarChart3Icon, CalendarIcon, FileStackIcon, ZapIcon } from "lucide-react";
@@ -316,29 +316,22 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
         }
     }, [tab, searchParams, activeTab]);
 
-    // Debug logging
+    // Debug logging - only log once when project loads, not on every render
+    const prevProjectId = useRef(null)
     useEffect(() => {
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && project && !isQueryLoading && id !== prevProjectId.current) {
+            prevProjectId.current = id
             logger.log('[ProjectDetails] Debug:', {
                 id,
                 hasToken,
                 authLoading,
                 shouldFetch,
                 isLoading,
-                isFetching,
-                queryStatus,
                 isQueryLoading,
-                isError,
-                isQueryError,
-                error: error?.message,
-                hasProjectData: !!projectData,
                 hasProject: !!project,
-                projectDataKeys: projectData ? Object.keys(projectData) : [],
-                queryResultKeys: queryResult ? Object.keys(queryResult) : [],
-                showResultKeys: showResult ? Object.keys(showResult) : [],
             })
         }
-    }, [id, hasToken, authLoading, shouldFetch, isLoading, isFetching, queryStatus, isQueryLoading, isError, isQueryError, error, projectData, project, queryResult, showResult])
+    }, [id, project, isQueryLoading, hasToken, authLoading, shouldFetch, isLoading])
 
     const statusColors = {
         PLANNING: "bg-zinc-200 text-zinc-900 dark:bg-zinc-600 dark:text-zinc-200",

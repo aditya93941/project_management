@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { XIcon, Mail, UserPlus, Lock, User } from "lucide-react";
 import toast from "react-hot-toast";
-import { useCreate, useUpdate } from "@refinedev/core";
+import { useCreate, useUpdate, useList } from "@refinedev/core";
+import { getApiUrl } from "../constants";
 
 const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen, userToEdit = null }) => {
     const [formData, setFormData] = useState({
@@ -14,8 +15,17 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen, userToEdit = null }
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isCheckingEmail, setIsCheckingEmail] = useState(false);
     const { mutate: createUser } = useCreate();
     const { mutate: updateUser } = useUpdate();
+    
+    // Fetch all users to check for existing email
+    const { data: usersData } = useList({
+        resource: 'users',
+        queryOptions: {
+            enabled: false, // Only fetch when needed
+        },
+    });
 
     useEffect(() => {
         if (userToEdit) {
@@ -35,8 +45,63 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen, userToEdit = null }
         }
     }, [userToEdit, isDialogOpen]);
 
+    // Check if email already exists
+    const checkEmailExists = async (email) => {
+        if (!email || !email.trim()) return false
+        
+        try {
+            const API_URL = getApiUrl()
+            const token = localStorage.getItem('auth_token')
+            const response = await fetch(`${API_URL}/users?email=${encodeURIComponent(email.trim().toLowerCase())}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            })
+            
+            if (!response.ok) {
+                // If endpoint doesn't support email query, check in fetched users
+                const users = usersData?.data || []
+                return users.some(user => 
+                    user.email?.toLowerCase() === email.trim().toLowerCase() &&
+                    (!userToEdit || (user.id || user._id) !== (userToEdit.id || userToEdit._id))
+                )
+            }
+            
+            const data = await response.json()
+            // Check if any user matches (excluding current user if editing)
+            if (Array.isArray(data.data)) {
+                return data.data.some(user => 
+                    user.email?.toLowerCase() === email.trim().toLowerCase() &&
+                    (!userToEdit || (user.id || user._id) !== (userToEdit.id || userToEdit._id))
+                )
+            }
+            
+            return false
+        } catch (error) {
+            // Fallback: check in fetched users list
+            const users = usersData?.data || []
+            return users.some(user => 
+                user.email?.toLowerCase() === email.trim().toLowerCase() &&
+                (!userToEdit || (user.id || user._id) !== (userToEdit.id || userToEdit._id))
+            )
+        }
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // Check if email already exists (only for new users)
+        if (!userToEdit) {
+            setIsCheckingEmail(true)
+            const emailExists = await checkEmailExists(formData.email)
+            setIsCheckingEmail(false)
+            
+            if (emailExists) {
+                toast.error('A user with this email already exists. Please use a different email address.')
+                return
+            }
+        }
+        
         setIsSubmitting(true);
         
         try {
@@ -236,10 +301,10 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen, userToEdit = null }
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || isCheckingEmail}
                             className="px-4 py-2 rounded bg-gradient-to-br from-red-500 to-red-600 text-white dark:text-zinc-200 text-sm hover:opacity-90 transition disabled:opacity-50"
                         >
-                            {isSubmitting ? (isEditMode ? "Updating..." : "Sending...") : (isEditMode ? "Update Member" : "Send Invitation")}
+                            {isCheckingEmail ? "Checking..." : isSubmitting ? (isEditMode ? "Updating..." : "Sending...") : (isEditMode ? "Update Member" : "Send Invitation")}
                         </button>
                     </div>
                 </form>

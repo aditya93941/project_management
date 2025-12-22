@@ -118,6 +118,17 @@ const AdminPanel = () => {
       return
     }
 
+    // Check if email already exists
+    const emailToCheck = manualCreateForm.email.trim().toLowerCase()
+    const emailExists = users.some(user => 
+      user.email?.toLowerCase() === emailToCheck
+    )
+
+    if (emailExists) {
+      toast.error('A user with this email already exists. Please use a different email address.')
+      return
+    }
+
     try {
       const token = localStorage.getItem('auth_token')
       const response = await fetch(`${API_URL}/users`, {
@@ -128,7 +139,7 @@ const AdminPanel = () => {
         },
         body: JSON.stringify({
           name: manualCreateForm.name.trim(),
-          email: manualCreateForm.email.trim().toLowerCase(),
+          email: emailToCheck,
           password: manualCreateForm.password,
           role: manualCreateForm.role,
         }),
@@ -137,7 +148,13 @@ const AdminPanel = () => {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to create user')
+        // Check if error is due to duplicate email
+        if (data.message && data.message.toLowerCase().includes('already exists')) {
+          toast.error('A user with this email already exists. Please use a different email address.')
+        } else {
+          throw new Error(data.message || 'Failed to create user')
+        }
+        return
       }
 
       toast.success('User created successfully!')
