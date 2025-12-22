@@ -1,12 +1,8 @@
 'use client'
 
-// CRITICAL: Force dynamic rendering to prevent static generation
-// These exports tell Next.js to NEVER statically generate this route
-export const dynamic = 'force-dynamic'
-export const dynamicParams = true
-export const revalidate = 0
-export const fetchCache = 'force-no-store'
-export const runtime = 'nodejs'
+// Note: Route segment config exports (dynamic, revalidate, etc.) are only valid in Server Components
+// Since this is a Client Component, it will be dynamically rendered by default
+// The app/layout.jsx already has the correct configuration for the root route
 
 import { Suspense } from 'react'
 import dynamicImport from 'next/dynamic'
@@ -24,14 +20,14 @@ const createLazyComponent = (importFn) => {
   })
 }
 
-const Dashboard = createLazyComponent(() => import('../../src/pages/Dashboard.jsx'))
-const Projects = createLazyComponent(() => import('../../src/pages/Projects'))
-const ProjectDetails = createLazyComponent(() => import('../../src/pages/ProjectDetails'))
-const Team = createLazyComponent(() => import('../../src/pages/Team'))
-const TaskDetails = createLazyComponent(() => import('../../src/pages/TaskDetails'))
-const AdminPanel = createLazyComponent(() => import('../../src/pages/AdminPanel'))
-const EODReports = createLazyComponent(() => import('../../src/pages/EODReports'))
-const EODManagerView = createLazyComponent(() => import('../../src/pages/EODManagerView'))
+const Dashboard = createLazyComponent(() => import('../../src/features/Dashboard.jsx'))
+const Projects = createLazyComponent(() => import('../../src/features/Projects'))
+const ProjectDetails = createLazyComponent(() => import('../../src/features/ProjectDetails'))
+const Team = createLazyComponent(() => import('../../src/features/Team'))
+const TaskDetails = createLazyComponent(() => import('../../src/features/TaskDetails'))
+const AdminPanel = createLazyComponent(() => import('../../src/features/AdminPanel'))
+const EODReports = createLazyComponent(() => import('../../src/features/EODReports'))
+const EODManagerView = createLazyComponent(() => import('../../src/features/EODManagerView'))
 const LoginForm = createLazyComponent(() => import('../../src/components/LoginForm'))
 
 // Separate component that uses useSearchParams to fix Suspense requirement
