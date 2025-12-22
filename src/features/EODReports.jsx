@@ -11,6 +11,7 @@ import { UserRole } from '../utils/roles'
 import Link from 'next/link'
 import { logger } from '../utils/logger'
 import { getApiUrl } from '../constants'
+import { PageSkeleton } from '../components/LoadingSkeleton'
 
 const EODReports = () => {
   const API_URL = getApiUrl()
@@ -1223,12 +1224,7 @@ const EODReports = () => {
 
   // Show loading while user data is being fetched
   if (!user) {
-    return (
-      <div className="p-6 text-center">
-        <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
-      </div>
-    )
+    return <PageSkeleton />
   }
 
   if (!isDeveloper) {

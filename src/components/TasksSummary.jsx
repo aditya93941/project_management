@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useList, useGetIdentity, useIsAuthenticated } from '@refinedev/core'
 import { CheckCircle, Circle, Clock, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
+import { TasksSummarySkeleton } from './LoadingSkeleton'
 
 const TasksSummary = () => {
     const { data: user } = useGetIdentity()
@@ -80,7 +81,11 @@ const TasksSummary = () => {
             </div>
 
             <div className="p-4 space-y-4">
-                {Object.entries(statusConfig).map(([status, config]) => {
+                {isLoadingTasks ? (
+                    <TasksSummarySkeleton />
+                ) : (
+                    <>
+                        {Object.entries(statusConfig).map(([status, config]) => {
                     const tasks = tasksByStatus[status] || []
                     const Icon = config.icon
                     
@@ -131,6 +136,8 @@ const TasksSummary = () => {
                         </div>
                         <p className="text-sm text-zinc-600 dark:text-zinc-400">No tasks yet</p>
                     </div>
+                )}
+                    </>
                 )}
             </div>
         </div>

@@ -9,6 +9,7 @@ import { TrendingUp, CheckCircle, Clock, AlertCircle, BarChart3 } from 'lucide-r
 import { UserRole, hasMinimumRole } from '../utils/roles'
 
 import { getApiUrl } from '../constants'
+import { EODSummarySkeleton, PageSkeleton } from '../components/LoadingSkeleton'
 
 const EODSummaries = () => {
   const API_URL = getApiUrl()
@@ -70,12 +71,7 @@ const EODSummaries = () => {
   }, [activeTab, selectedUserId, canViewSummaries, user])
 
   if (!user) {
-    return (
-      <div className="p-6 text-center">
-        <div className="inline-block w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-        <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
-      </div>
-    )
+    return <PageSkeleton />
   }
 
   if (!canViewSummaries) {
@@ -90,9 +86,16 @@ const EODSummaries = () => {
 
   if (isLoading) {
     return (
-      <div className="p-6 text-center">
-        <div className="inline-block w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-        <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <div>
+          <div className="h-8 bg-zinc-200 dark:bg-zinc-800 rounded w-48 mb-2 animate-pulse"></div>
+          <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-64 animate-pulse"></div>
+        </div>
+        <div className="flex gap-2 border-b border-zinc-200 dark:border-zinc-700">
+          <div className="h-10 bg-zinc-200 dark:bg-zinc-800 rounded w-32 animate-pulse"></div>
+          <div className="h-10 bg-zinc-200 dark:bg-zinc-800 rounded w-32 animate-pulse"></div>
+        </div>
+        <EODSummarySkeleton />
       </div>
     )
   }

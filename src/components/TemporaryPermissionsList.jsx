@@ -6,6 +6,7 @@ import { useList, useGetIdentity } from '@refinedev/core'
 import toast from 'react-hot-toast'
 
 import { getApiUrl } from '../constants'
+import { ListSkeleton } from './LoadingSkeleton'
 
 const TemporaryPermissionsList = ({ refreshTrigger }) => {
   const API_URL = getApiUrl()
@@ -104,8 +105,8 @@ const TemporaryPermissionsList = ({ refreshTrigger }) => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="p-8">
+        <ListSkeleton items={3} />
       </div>
     )
   }

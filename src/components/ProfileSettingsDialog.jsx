@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Save } from 'lucide-react'
+import { X, Save, Eye, EyeOff } from 'lucide-react'
 import { useGetIdentity, useCustomMutation } from '@refinedev/core'
 import toast from 'react-hot-toast'
 import { getApiUrl } from '../constants'
@@ -17,6 +17,12 @@ const ProfileSettingsDialog = ({ isOpen, onClose }) => {
         confirmPassword: '',
     })
     const [isSaving, setIsSaving] = useState(false)
+    const [showPassword, setShowPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+    
+    // Check if passwords match
+    const passwordsMatch = formData.password && formData.confirmPassword && formData.password === formData.confirmPassword
+    const passwordsMismatch = formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword
 
     // Update form data when user changes or dialog opens
     useEffect(() => {
@@ -147,13 +153,23 @@ const ProfileSettingsDialog = ({ isOpen, onClose }) => {
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 New Password (leave blank to keep current)
                             </label>
-                            <input
-                                type="password"
-                                value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                className="w-full px-3 py-2 rounded border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white text-sm"
-                                placeholder="Enter new password"
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    className="w-full px-3 py-2 pr-10 rounded border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white text-sm"
+                                    placeholder="Enter new password"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-400 hover:text-gray-600 dark:hover:text-zinc-200 transition-colors"
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Confirm Password */}
@@ -162,13 +178,45 @@ const ProfileSettingsDialog = ({ isOpen, onClose }) => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Confirm New Password
                                 </label>
-                                <input
-                                    type="password"
-                                    value={formData.confirmPassword}
-                                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                    className="w-full px-3 py-2 rounded border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white text-sm"
-                                    placeholder="Confirm new password"
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        value={formData.confirmPassword}
+                                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                        className={`w-full px-3 py-2 pr-10 rounded border bg-white dark:bg-zinc-900 text-gray-900 dark:text-white text-sm ${
+                                            passwordsMismatch 
+                                                ? 'border-red-300 dark:border-red-700 focus:border-red-500 focus:ring-red-500' 
+                                                : passwordsMatch
+                                                ? 'border-green-300 dark:border-green-700 focus:border-green-500 focus:ring-green-500'
+                                                : 'border-gray-300 dark:border-zinc-700'
+                                        }`}
+                                        placeholder="Confirm new password"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-400 hover:text-gray-600 dark:hover:text-zinc-200 transition-colors"
+                                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                                    >
+                                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                                {formData.confirmPassword && (
+                                    <p className={`text-xs mt-1 ${
+                                        passwordsMatch 
+                                            ? 'text-green-600 dark:text-green-400' 
+                                            : passwordsMismatch
+                                            ? 'text-red-600 dark:text-red-400'
+                                            : 'text-gray-500 dark:text-gray-400'
+                                    }`}>
+                                        {passwordsMatch 
+                                            ? '✓ Passwords match' 
+                                            : passwordsMismatch
+                                            ? '✗ Passwords do not match'
+                                            : ''
+                                        }
+                                    </p>
+                                )}
                             </div>
                         )}
 

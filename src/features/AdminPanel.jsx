@@ -10,8 +10,10 @@ import toast from 'react-hot-toast'
 import GrantTemporaryPermissionDialog from '../components/GrantTemporaryPermissionDialog'
 import TemporaryPermissionsList from '../components/TemporaryPermissionsList'
 import PermissionRequestsList from '../components/PermissionRequestsList'
+import UserAvatar from '../components/UserAvatar'
 import { logger } from '../utils/logger'
 import { getApiUrl } from '../constants'
+import { TableSkeleton } from '../components/LoadingSkeleton'
 
 const AdminPanel = () => {
   const API_URL = getApiUrl()
@@ -72,82 +74,6 @@ const AdminPanel = () => {
   const totalUsers = usersData?.total || 0
   const totalPages = Math.ceil(totalUsers / pageSize)
 
-  // Helper function to generate initials from name
-  const getInitials = (name) => {
-    if (!name) return '?'
-    const parts = name.trim().split(/\s+/)
-    if (parts.length === 1) {
-      return parts[0].charAt(0).toUpperCase()
-    }
-    return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
-  }
-
-  // Avatar background colors
-  const avatarColors = [
-    "bg-gradient-to-br from-red-500 to-red-600",
-    "bg-gradient-to-br from-orange-500 to-orange-600",
-    "bg-gradient-to-br from-amber-500 to-amber-600",
-    "bg-gradient-to-br from-yellow-500 to-yellow-600",
-    "bg-gradient-to-br from-lime-500 to-lime-600",
-    "bg-gradient-to-br from-green-500 to-green-600",
-    "bg-gradient-to-br from-emerald-500 to-emerald-600",
-    "bg-gradient-to-br from-teal-500 to-teal-600",
-    "bg-gradient-to-br from-cyan-500 to-cyan-600",
-    "bg-gradient-to-br from-sky-500 to-sky-600",
-    "bg-gradient-to-br from-red-500 to-red-600",
-    "bg-gradient-to-br from-indigo-500 to-indigo-600",
-    "bg-gradient-to-br from-violet-500 to-violet-600",
-    "bg-gradient-to-br from-purple-500 to-purple-600",
-    "bg-gradient-to-br from-fuchsia-500 to-fuchsia-600",
-    "bg-gradient-to-br from-pink-500 to-pink-600",
-    "bg-gradient-to-br from-rose-500 to-rose-600",
-  ]
-
-  const getAvatarColor = (identifier) => {
-    if (!identifier) return avatarColors[0]
-    let hash = 0
-    for (let i = 0; i < identifier.length; i++) {
-      hash = identifier.charCodeAt(i) + ((hash << 5) - hash)
-    }
-    const index = Math.abs(hash) % avatarColors.length
-    return avatarColors[index]
-  }
-
-  // Helper function to render avatar (same logic as Team panel)
-  const renderAvatar = (user, size = 'w-8 h-8') => {
-    // Check if image is a URL (starts with http) or initials
-    const isImageUrl = user.image && (user.image.startsWith('http') || user.image.startsWith('https') || user.image.startsWith('/'))
-    const initials = isImageUrl ? getInitials(user.name || user.email) : (user.image || getInitials(user.name || user.email))
-    const colorClass = getAvatarColor(user.name || user.email || 'default')
-
-    if (isImageUrl) {
-      // Render actual image with fallback
-      return (
-        <div className={`${size} rounded-full ${colorClass} flex items-center justify-center text-white font-semibold text-xs overflow-hidden`}>
-          <img
-            src={user.image}
-            alt={user.name || 'Avatar'}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              // On error, hide img and show initials
-              e.target.style.display = 'none'
-              const parent = e.target.parentElement
-              if (parent) {
-                parent.innerHTML = initials
-              }
-            }}
-          />
-        </div>
-      )
-    }
-
-    // Render initials in colored circle
-    return (
-      <div className={`${size} rounded-full ${colorClass} flex items-center justify-center text-white font-semibold text-xs`}>
-        {initials}
-      </div>
-    )
-  }
 
   const [showManualCreateForm, setShowManualCreateForm] = useState(false)
   const [manualCreateForm, setManualCreateForm] = useState({
@@ -346,9 +272,8 @@ const AdminPanel = () => {
         </h2>
 
         {isLoadingUsers ? (
-          <div className="text-center py-8">
-            <div className="inline-block w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading users...</p>
+          <div className="py-8">
+            <TableSkeleton rows={5} columns={4} />
           </div>
         ) : isUsersError ? (
           <div className="text-center py-8">
@@ -390,7 +315,7 @@ const AdminPanel = () => {
                   <tr key={userItem._id || userItem.id} className="border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        {renderAvatar(userItem)}
+                        <UserAvatar user={userItem} className="w-8 h-8" />
                         <span className="font-medium text-gray-900 dark:text-white">{userItem.name}</span>
                       </div>
                     </td>

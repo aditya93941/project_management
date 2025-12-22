@@ -14,6 +14,7 @@ import UserAvatar from "../components/UserAvatar";
 import EditTaskDialog from "../components/EditTaskDialog";
 import DeleteConfirmationDialog from "../components/DeleteConfirmationDialog";
 import { hasMinimumRole, UserRole } from '../utils/roles'
+import { TaskDetailsSkeleton } from '../components/LoadingSkeleton'
 
 const TaskDetails = ({ projectId: propProjectId, taskId: propTaskId }) => {
     const searchParams = useSearchParams();
@@ -261,14 +262,7 @@ const TaskDetails = ({ projectId: propProjectId, taskId: propTaskId }) => {
 
 // Show loading state
 if (isQueryLoading || (!shouldFetch && !isError && !task)) {
-    return (
-        <div className="text-gray-500 dark:text-zinc-400 px-4 py-6 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 dark:bg-zinc-800 rounded-full flex items-center justify-center">
-                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-            <p>Loading task details...</p>
-        </div>
-    );
+    return <TaskDetailsSkeleton />
 }
 
 // Show error state

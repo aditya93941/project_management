@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useIsAuthenticated } from '@refinedev/core'
 import { useRouter } from 'next/navigation'
 import LoginForm from './LoginForm'
-import { Loader2Icon } from 'lucide-react'
+import { PageSkeleton } from './LoadingSkeleton'
 
 /**
  * AuthGuard component - Protects routes by checking authentication
@@ -19,11 +19,7 @@ const AuthGuard = ({ children }) => {
 
     // Show loading while checking
     if (isLoading || authenticated === undefined) {
-        return (
-            <div className='flex items-center justify-center h-screen bg-white dark:bg-zinc-950'>
-                <Loader2Icon className="size-7 text-red-500 animate-spin" />
-            </div>
-        )
+        return <PageSkeleton />
     }
 
     // Show login if not authenticated

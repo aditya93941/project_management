@@ -17,6 +17,7 @@ import { hasMinimumRole, UserRole } from '../utils/roles'
 import { canCreateTaskByRole, hasTemporaryPermission } from '../utils/taskPermissions'
 import AccessDenied from '../components/AccessDenied'
 import { logger } from '../utils/logger'
+import { ProjectDetailsSkeleton } from '../components/LoadingSkeleton'
 
 export default function ProjectDetails({ id: propId, tab: propTab }) {
     const { list, show } = useNavigation();
@@ -352,14 +353,7 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
     const isActuallyLoading = isQueryLoading === true || (shouldFetch && !project && !isError && !projectData)
 
     if (isWaitingForAuth || isActuallyLoading) {
-        return (
-            <div className="p-6 text-center text-zinc-900 dark:text-zinc-200">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gray-200 dark:bg-zinc-800 rounded-full flex items-center justify-center mt-40">
-                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-                <p className="text-lg text-gray-500 dark:text-zinc-400">Loading project...</p>
-            </div>
-        );
+        return <ProjectDetailsSkeleton />
     }
 
     // Show access denied for 403 errors

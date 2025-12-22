@@ -7,7 +7,7 @@ import { loadTheme } from '../features/themeSlice'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
 import LoginForm from './LoginForm'
-import { Loader2Icon } from 'lucide-react'
+import { PageSkeleton } from './LoadingSkeleton'
 
 const Layout = ({ children }) => {
     const { data: authenticated, isLoading: authLoading } = useIsAuthenticated()
@@ -91,12 +91,7 @@ const Layout = ({ children }) => {
     // Only show loading if we have a token (user might be authenticated)
     // If no token, we can proceed to login immediately
     if (hasToken && (!authChecked || authenticated === undefined || authLoading)) {
-        return (
-            <div className='flex items-center justify-center h-screen bg-white dark:bg-zinc-950'>
-                <Loader2Icon className="size-7 text-blue-500 animate-spin" />
-                <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
-            </div>
-        )
+        return <PageSkeleton />
     }
 
     // If no token, show login immediately (don't wait for auth check)
@@ -114,12 +109,7 @@ const Layout = ({ children }) => {
     // If we have a token but auth check is still pending, show loading
     // This handles the edge case where token exists but check hasn't completed
     if (hasToken && !authChecked && authenticated === undefined) {
-        return (
-            <div className='flex items-center justify-center h-screen bg-white dark:bg-zinc-950'>
-                <Loader2Icon className="size-7 text-blue-500 animate-spin" />
-                <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
-            </div>
-        )
+        return <PageSkeleton />
     }
 
     return (

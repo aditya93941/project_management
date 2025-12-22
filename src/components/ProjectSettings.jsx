@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, Save, X, Trash2, UserPlus, Users } from 'lucide-react'
+import { Settings, Save, X, Trash2, UserPlus, Users, UserMinus } from 'lucide-react'
 import { useUpdate, useInvalidate, useDelete, useGetIdentity } from '@refinedev/core'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import DeleteConfirmationDialog from './DeleteConfirmationDialog'
 import AddProjectMembersDialog from './AddProjectMembersDialog'
+import UserAvatar from './UserAvatar'
 import { hasMinimumRole, UserRole } from '../utils/roles'
+import { getApiUrl } from '../constants'
 
 const ProjectSettings = ({ project }) => {
     const router = useRouter()
@@ -26,6 +28,8 @@ const ProjectSettings = ({ project }) => {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [showAddMembersDialog, setShowAddMembersDialog] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [removingMemberId, setRemovingMemberId] = useState(null)
+    const [memberToRemove, setMemberToRemove] = useState(null)
     // Initialize form data from project prop
     const getInitialFormData = (proj) => ({
         name: proj?.name || '',
@@ -167,6 +171,97 @@ const ProjectSettings = ({ project }) => {
         )
     }
 
+    const handleRemoveMemberClick = (memberUserId, memberName) => {
+        setMemberToRemove({ userId: memberUserId, name: memberName })
+    }
+
+    const handleRemoveMemberConfirm = async () => {
+        if (!memberToRemove || !project?.id && !project?._id) {
+            toast.error('Project ID or member ID is missing')
+            setMemberToRemove(null)
+            return
+        }
+
+        const projectId = project.id || project._id
+        const memberUserId = memberToRemove.userId
+        setRemovingMemberId(memberUserId)
+        setMemberToRemove(null)
+        toast.loading('Removing member...')
+
+        try {
+            const API_URL = getApiUrl()
+            const token = localStorage.getItem('auth_token')
+
+            const response = await fetch(`${API_URL}/projects/${projectId}/members/${memberUserId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to remove member')
+            }
+
+            toast.dismissAll()
+            toast.success('Member removed successfully')
+
+            // Invalidate project data to refresh
+            try {
+                if (invalidate && typeof invalidate === 'function') {
+                    await invalidate({ resource: 'projects', id: projectId })
+                }
+            } catch (error) {
+                console.error('Error invalidating cache:', error)
+            }
+        } catch (error) {
+            toast.dismissAll()
+            toast.error(error.message || 'Failed to remove member')
+            console.error('Remove member error:', error)
+        } finally {
+            setRemovingMemberId(null)
+        }
+    }
+
+    const handleMembersAdded = () => {
+        // Refresh project data after members are added
+        const projectId = project?.id || project?._id
+        if (projectId && invalidate && typeof invalidate === 'function') {
+            invalidate({ resource: 'projects', id: projectId }).catch(err => {
+                console.error('Error invalidating project cache:', err)
+            })
+        }
+    }
+
+    // Get members list - handle both populated and unpopulated formats
+    const members = project?.members || []
+    
+    // Role labels for display
+    const roleLabels = {
+        'MANAGER': 'Manager',
+        'GROUP_HEAD': 'Group Head',
+        'TEAM_LEAD': 'Team Lead',
+        'DEVELOPER': 'Developer'
+    }
+    
+    // Helper to get user info from member object (handles different data structures)
+    const getMemberUser = (member) => {
+        if (member.userId) {
+            // If userId is populated (object with name, email, etc.)
+            if (typeof member.userId === 'object') {
+                return member.userId
+            }
+            // If userId is just an ID string, we need to fetch it
+            // But for now, we'll just return null and show the ID
+            return null
+        }
+        // Fallback: member might be the user object directly
+        return member
+    }
+    
+
     return (
         <div className="p-6">
             <div className="flex items-center gap-2 mb-6">
@@ -297,6 +392,11 @@ const ProjectSettings = ({ project }) => {
                         <div className="flex items-center gap-2">
                             <Users className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
                             <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-200">Project Members</h3>
+                            {members.length > 0 && (
+                                <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                                    ({members.length} {members.length === 1 ? 'member' : 'members'})
+                                </span>
+                            )}
                         </div>
                         <button
                             type="button"
@@ -307,9 +407,61 @@ const ProjectSettings = ({ project }) => {
                             Add Members
                         </button>
                     </div>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
                         Manage project members and their access to project tasks.
                     </p>
+
+                    {/* Members List */}
+                    {members.length === 0 ? (
+                        <div className="text-center py-8 text-zinc-500 dark:text-zinc-400 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg">
+                            <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                            <p className="text-sm">No members added yet. Click "Add Members" to get started.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {members.map((member) => {
+                                const memberUser = getMemberUser(member)
+                                const userId = memberUser?._id || memberUser?.id || member.userId?._id || member.userId?.id || member.userId
+                                const userName = memberUser?.name || 'Unknown User'
+                                const userEmail = memberUser?.email || 'No email'
+                                const userRole = memberUser?.role || 'DEVELOPER'
+                                const userImage = memberUser?.image
+
+                                return (
+                                    <div
+                                        key={member._id || member.id || userId}
+                                        className="flex items-center justify-between p-3 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            {/* Avatar */}
+                                            <UserAvatar user={memberUser} className="w-10 h-10" />
+                                            
+                                            {/* User Info */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-zinc-900 dark:text-zinc-200 truncate">
+                                                    {userName}
+                                                </div>
+                                                <div className="text-sm text-zinc-500 dark:text-zinc-400 truncate">
+                                                    {userEmail} • {roleLabels[userRole] || userRole}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Remove Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveMemberClick(userId, userName)}
+                                            disabled={removingMemberId === userId}
+                                            className="ml-3 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title="Remove member"
+                                        >
+                                            <UserMinus className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -347,12 +499,25 @@ const ProjectSettings = ({ project }) => {
                 isLoading={isDeleting}
             />
 
+            {/* Remove Member Confirmation Dialog */}
+            <DeleteConfirmationDialog
+                isOpen={!!memberToRemove}
+                onClose={() => setMemberToRemove(null)}
+                onConfirm={handleRemoveMemberConfirm}
+                title="Remove Team Member"
+                message={`Are you sure you want to remove "${memberToRemove?.name}" from this project? They will lose access to all project tasks.`}
+                confirmText="Remove Member"
+                cancelText="Cancel"
+                isLoading={!!removingMemberId}
+            />
+
             {/* Add Members Dialog */}
             <AddProjectMembersDialog
                 isOpen={showAddMembersDialog}
                 onClose={() => setShowAddMembersDialog(false)}
                 projectId={project?.id || project?._id}
                 existingMembers={project?.members || []}
+                onMembersAdded={handleMembersAdded}
             />
         </div>
     )

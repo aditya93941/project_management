@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
 import { usePathname } from 'next/navigation'
-import { Loader2Icon } from 'lucide-react'
+import { PageSkeleton } from '../src/components/LoadingSkeleton'
 
 function NotFoundContent() {
   const pathname = usePathname()
@@ -28,12 +28,7 @@ function NotFoundContent() {
 
 export default function NotFound() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-screen">
-        <Loader2Icon className="size-7 text-blue-500 animate-spin" />
-        <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
-      </div>
-    }>
+    <Suspense fallback={<PageSkeleton />}>
       <NotFoundContent />
     </Suspense>
   )

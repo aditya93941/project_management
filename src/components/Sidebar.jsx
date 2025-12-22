@@ -5,7 +5,7 @@ import { useNavigation, useResource, useGetIdentity } from '@refinedev/core'
 import { usePathname, useRouter } from 'next/navigation'
 import MyTasksSidebar from './MyTasksSidebar'
 import ProjectSidebar from './ProjectsSidebar'
-import { FolderOpenIcon, LayoutDashboardIcon, SettingsIcon, UsersIcon, Shield, FileText } from 'lucide-react'
+import { FolderOpenIcon, LayoutDashboardIcon, UsersIcon, Shield, FileText, X } from 'lucide-react'
 import { UserRole, hasMinimumRole } from '../utils/roles'
 
 const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
@@ -42,13 +42,23 @@ const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
         <div ref={sidebarRef} className={`z-10 bg-white dark:bg-zinc-900 min-w-68 flex flex-col h-screen border-r border-gray-200 dark:border-zinc-800 max-sm:absolute transition-all ${isSidebarOpen ? 'left-0' : '-left-full'} `} >
             <div className='flex-1 overflow-y-scroll no-scrollbar flex flex-col'>
                 <div>
-                    {/* Logo */}
-                    <div className='p-4 border-b border-gray-200 dark:border-zinc-800'>
-                        <img 
-                            src="/logo.svg" 
-                            alt="P2 Internal Tool" 
-                            className="h-10 w-auto"
-                        />
+                    {/* Logo Header - matching navbar height */}
+                    <div className='px-4 py-3 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between' style={{ paddingBottom: '16px' }}>
+                        <div className='flex-1 flex justify-center'>
+                            <img 
+                                src="/logo.svg" 
+                                alt="P2 Internal Tool" 
+                                className="h-10 w-auto"
+                            />
+                        </div>
+                        {/* Close button for mobile */}
+                        <button
+                            onClick={() => setIsSidebarOpen(false)}
+                            className="sm:hidden p-1.5 rounded-lg transition-colors text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 ml-2"
+                            aria-label="Close sidebar"
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
                     <div className='p-4'>
                         {menuItems.map((item) => {
@@ -83,10 +93,6 @@ const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
                                 <p className='text-sm truncate'>Admin Panel</p>
                             </button>
                         )}
-                        <button className='flex w-full items-center gap-3 py-2 px-4 text-gray-800 dark:text-zinc-100 cursor-pointer rounded hover:bg-gray-50 dark:hover:bg-zinc-800/60 transition-all'>
-                            <SettingsIcon size={16} />
-                            <p className='text-sm truncate'>Settings</p>
-                        </button>
                     </div>
                     <MyTasksSidebar />
                     <ProjectSidebar />

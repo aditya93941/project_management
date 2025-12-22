@@ -63,11 +63,9 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen, userToEdit = null }
             };
 
             if (isEditMode) {
-                // Update existing user
+                // Update existing user - password is handled by the user themselves in profile settings
                 const updateValues = { ...commonValues };
-                if (formData.password) {
-                    updateValues.password = formData.password;
-                }
+                // Password field removed - users should change their own password via profile settings
 
                 updateUser({
                     resource: 'users',
@@ -188,22 +186,24 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen, userToEdit = null }
                         </div>
                     </div>
 
-                    {/* Password */}
-                    <div>
-                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                            Password {isEditMode ? "(Leave blank to keep current)" : "(Optional - auto-generated if blank)"}
-                        </label>
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400 dark:text-zinc-500 w-4 h-4" />
-                            <input
-                                type="text"
-                                value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                placeholder={isEditMode ? "Enter new password to change" : "Leave blank for auto-generation"}
-                                className="w-full pl-10 pr-3 py-2 rounded dark:bg-black border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200 text-sm"
-                            />
+                    {/* Password - Only show for new users, not in edit mode */}
+                    {!isEditMode && (
+                        <div>
+                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                                Password (Optional - auto-generated if blank)
+                            </label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400 dark:text-zinc-500 w-4 h-4" />
+                                <input
+                                    type="text"
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    placeholder="Leave blank for auto-generation"
+                                    className="w-full pl-10 pr-3 py-2 rounded dark:bg-black border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200 text-sm"
+                                />
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Role */}
                     <div>

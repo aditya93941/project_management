@@ -5,6 +5,7 @@ import { useNavigation, useList, useIsAuthenticated } from "@refinedev/core";
 import { ArrowRight, Calendar, UsersIcon, FolderOpen } from "lucide-react";
 import { format } from "date-fns";
 import CreateProjectDialog from "./CreateProjectDialog";
+import { ProjectOverviewSkeleton } from "./LoadingSkeleton";
 
 const ProjectOverview = () => {
     const { list, show } = useNavigation();
@@ -61,7 +62,9 @@ const ProjectOverview = () => {
             </div>
 
             <div className="p-0">
-                {projects.length === 0 ? (
+                {isLoadingProjects ? (
+                    <ProjectOverviewSkeleton />
+                ) : projects.length === 0 ? (
                     <div className="p-12 text-center">
                         <div className="w-16 h-16 mx-auto mb-4 bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-500 rounded-full flex items-center justify-center">
                             <FolderOpen size={32} />
@@ -97,7 +100,7 @@ const ProjectOverview = () => {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-500 mb-3">
+                                <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-500">
                                     <div className="flex items-center gap-4">
                                         {/* Members count - include owner in count */}
                                         <div className="flex items-center gap-1">
@@ -116,16 +119,6 @@ const ProjectOverview = () => {
                                                 {format(new Date(project.end_date), "MMM d, yyyy")}
                                             </div>
                                         )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-zinc-500 dark:text-zinc-500">Progress</span>
-                                        <span className="text-zinc-600 dark:text-zinc-400">{project.progress || 0}%</span>
-                                    </div>
-                                    <div className="w-full bg-zinc-200 dark:bg-zinc-800 rounded h-1.5">
-                                        <div className="h-1.5 bg-blue-500 rounded" style={{ width: `${project.progress || 0}%` }} />
                                     </div>
                                 </div>
                             </div>

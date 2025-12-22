@@ -1,14 +1,14 @@
 'use client'
 
-import { SearchIcon, PanelLeft, User, Bell, LogOut } from 'lucide-react'
+import { SearchIcon, PanelLeft, User, Bell, LogOut, FolderOpen, FileText, X } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { useDispatch, useSelector } from 'react-redux'
-import { useGetIdentity, useLogout, useList, useUpdate, useCustomMutation, useInvalidate } from '@refinedev/core'
+import { useGetIdentity, useLogout, useList, useUpdate, useCustomMutation, useInvalidate, useIsAuthenticated } from '@refinedev/core'
 import { toggleTheme } from '../features/themeSlice'
 import { MoonIcon, SunIcon } from 'lucide-react'
 import { assets } from '../assets/assets'
 import { roleLabels } from '../utils/roles'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { format } from 'date-fns'
 import { useRouter } from "next/navigation"
 import UserAvatar from './UserAvatar'
@@ -21,12 +21,28 @@ const Navbar = ({ setIsSidebarOpen }) => {
     const dispatch = useDispatch();
     const { theme } = useSelector(state => state.theme);
     const router = useRouter();
+    const { data: authenticated, isLoading: authLoading } = useIsAuthenticated()
 
     const [showNotifications, setShowNotifications] = useState(false);
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const [showProfileSettings, setShowProfileSettings] = useState(false);
+    const [globalSearchTerm, setGlobalSearchTerm] = useState('');
+    const [showSearchResults, setShowSearchResults] = useState(false);
     const notificationsRef = useRef(null);
     const profileRef = useRef(null);
+    const searchRef = useRef(null);
+    
+    // Check token for enabling search queries
+    const [hasToken, setHasToken] = useState(false);
+    
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('auth_token');
+            setHasToken(!!token && token.trim() !== '');
+        }
+    }, [authenticated]);
+    
+    const shouldFetch = hasToken && !authLoading;
 
     // Browser notification permission and setup
     const [notificationPermission, setNotificationPermission] = useState('default');
@@ -45,6 +61,50 @@ const Navbar = ({ setIsSidebarOpen }) => {
         }
     }, []);
 
+    // Fetch projects and tasks for global search
+    const { data: projectsData } = useList({
+        resource: 'projects',
+        pagination: { pageSize: 100 },
+        queryOptions: {
+            enabled: shouldFetch && globalSearchTerm.length >= 2,
+            refetchOnWindowFocus: false,
+        },
+    });
+
+    const { data: tasksData } = useList({
+        resource: 'tasks',
+        pagination: { pageSize: 100 },
+        queryOptions: {
+            enabled: shouldFetch && globalSearchTerm.length >= 2,
+            refetchOnWindowFocus: false,
+        },
+    });
+
+    // Filter search results
+    const searchResults = useMemo(() => {
+        if (!globalSearchTerm.trim() || globalSearchTerm.length < 2) {
+            return null;
+        }
+
+        const term = globalSearchTerm.toLowerCase().trim();
+        const projects = (projectsData?.data || []).filter(p =>
+            p.name?.toLowerCase().includes(term) ||
+            p.description?.toLowerCase().includes(term)
+        ).slice(0, 5); // Limit to 5 results
+
+        const tasks = (tasksData?.data || []).filter(t =>
+            t.title?.toLowerCase().includes(term) ||
+            t.description?.toLowerCase().includes(term) ||
+            t.type?.toLowerCase().includes(term)
+        ).slice(0, 5); // Limit to 5 results
+
+        return {
+            projects: projects.length > 0 ? projects : null,
+            tasks: tasks.length > 0 ? tasks : null,
+            hasResults: projects.length > 0 || tasks.length > 0,
+        };
+    }, [globalSearchTerm, projectsData, tasksData]);
+
     // Close notifications dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -54,16 +114,19 @@ const Navbar = ({ setIsSidebarOpen }) => {
             if (profileRef.current && !profileRef.current.contains(event.target)) {
                 setShowProfileDropdown(false);
             }
+            if (searchRef.current && !searchRef.current.contains(event.target)) {
+                setShowSearchResults(false);
+            }
         };
 
-        if (showNotifications || showProfileDropdown) {
+        if (showNotifications || showProfileDropdown || showSearchResults) {
             document.addEventListener('mousedown', handleClickOutside);
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [showNotifications, showProfileDropdown]);
+    }, [showNotifications, showProfileDropdown, showSearchResults]);
 
     const { data: notificationData, refetch } = useList({
         resource: 'notifications',
@@ -258,13 +321,141 @@ const Navbar = ({ setIsSidebarOpen }) => {
                     </button>
 
                     {/* Search Input */}
-                    <div className="relative flex-1 max-w-sm">
+                    <div className="relative flex-1 max-w-sm" ref={searchRef}>
                         <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-400 size-3.5" />
                         <input
                             type="text"
                             placeholder="Search projects, tasks..."
-                            className="pl-8 pr-4 py-2 w-full bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-md text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
+                            value={globalSearchTerm}
+                            onChange={(e) => {
+                                setGlobalSearchTerm(e.target.value);
+                                setShowSearchResults(e.target.value.length >= 2);
+                            }}
+                            onFocus={() => {
+                                if (globalSearchTerm.length >= 2) {
+                                    setShowSearchResults(true);
+                                }
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && searchResults?.hasResults) {
+                                    // Navigate to first result
+                                    if (searchResults.projects && searchResults.projects.length > 0) {
+                                        router.push(`/projects/${searchResults.projects[0].id || searchResults.projects[0]._id}`);
+                                        setShowSearchResults(false);
+                                        setGlobalSearchTerm('');
+                                    } else if (searchResults.tasks && searchResults.tasks.length > 0) {
+                                        const task = searchResults.tasks[0];
+                                        const taskProjectId = task.projectId?.id || task.projectId?._id || task.projectId;
+                                        if (taskProjectId) {
+                                            router.push(`/tasks?taskId=${task.id || task._id}&projectId=${taskProjectId}`);
+                                        } else {
+                                            router.push(`/tasks?taskId=${task.id || task._id}`);
+                                        }
+                                        setShowSearchResults(false);
+                                        setGlobalSearchTerm('');
+                                    }
+                                }
+                                if (e.key === 'Escape') {
+                                    setShowSearchResults(false);
+                                    setGlobalSearchTerm('');
+                                }
+                            }}
+                            className="pl-8 pr-8 py-2 w-full bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-md text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
                         />
+                        {globalSearchTerm && (
+                            <button
+                                onClick={() => {
+                                    setGlobalSearchTerm('');
+                                    setShowSearchResults(false);
+                                }}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-400 hover:text-gray-600 dark:hover:text-zinc-200 transition-colors"
+                                aria-label="Clear search"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+
+                        {/* Search Results Dropdown */}
+                        {showSearchResults && searchResults && (
+                            <div className="absolute top-full mt-2 w-full bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+                                {searchResults.hasResults ? (
+                                    <div className="p-2">
+                                        {/* Projects Results */}
+                                        {searchResults.projects && (
+                                            <div className="mb-2">
+                                                <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                                                    Projects ({searchResults.projects.length})
+                                                </div>
+                                                {searchResults.projects.map((project) => (
+                                                    <button
+                                                        key={project.id || project._id}
+                                                        onClick={() => {
+                                                            router.push(`/projects/${project.id || project._id}`);
+                                                            setShowSearchResults(false);
+                                                            setGlobalSearchTerm('');
+                                                        }}
+                                                        className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-left"
+                                                    >
+                                                        <FolderOpen className="w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                                {project.name}
+                                                            </div>
+                                                            {project.description && (
+                                                                <div className="text-xs text-gray-500 dark:text-zinc-400 truncate">
+                                                                    {project.description}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Tasks Results */}
+                                        {searchResults.tasks && (
+                                            <div>
+                                                <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                                                    Tasks ({searchResults.tasks.length})
+                                                </div>
+                                                {searchResults.tasks.map((task) => {
+                                                    const taskProjectId = task.projectId?.id || task.projectId?._id || task.projectId;
+                                                    return (
+                                                        <button
+                                                            key={task.id || task._id}
+                                                            onClick={() => {
+                                                                if (taskProjectId) {
+                                                                    router.push(`/tasks?taskId=${task.id || task._id}&projectId=${taskProjectId}`);
+                                                                } else {
+                                                                    router.push(`/tasks?taskId=${task.id || task._id}`);
+                                                                }
+                                                                setShowSearchResults(false);
+                                                                setGlobalSearchTerm('');
+                                                            }}
+                                                            className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-left"
+                                                        >
+                                                            <FileText className="w-4 h-4 text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                                    {task.title}
+                                                                </div>
+                                                                <div className="text-xs text-gray-500 dark:text-zinc-400 truncate">
+                                                                    {task.type} • {task.priority}
+                                                                </div>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : globalSearchTerm.length >= 2 ? (
+                                    <div className="p-4 text-center text-sm text-gray-500 dark:text-zinc-400">
+                                        No results found for "{globalSearchTerm}"
+                                    </div>
+                                ) : null}
+                            </div>
+                        )}
                     </div>
                 </div>
 

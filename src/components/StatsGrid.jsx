@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useList, useGetIdentity, useIsAuthenticated } from '@refinedev/core'
 import { FolderOpen, CheckSquare, Users, TrendingUp } from 'lucide-react'
+import { StatsGridSkeleton } from './LoadingSkeleton'
 
 const StatsGrid = () => {
     const { data: authenticated, isLoading: authLoading } = useIsAuthenticated()
@@ -61,6 +62,8 @@ const StatsGrid = () => {
     const tasks = tasksData?.data || []
     const users = usersData?.data || []
     
+    const isLoading = isLoadingProjects || isLoadingTasks || isLoadingUsers
+    
     // Calculate stats
     const totalProjects = projects.length
     const activeProjects = projects.filter(p => p.status === 'ACTIVE').length
@@ -94,6 +97,10 @@ const StatsGrid = () => {
             color: 'bg-purple-100 dark:bg-purple-500/10 text-purple-500 dark:text-purple-200'
         }
     ]
+
+    if (isLoading) {
+        return <StatsGridSkeleton />
+    }
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 my-8">

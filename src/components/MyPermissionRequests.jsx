@@ -5,6 +5,7 @@ import { Clock, FolderOpen, CheckCircle, XCircle, AlertCircle } from 'lucide-rea
 import toast from 'react-hot-toast'
 
 import { getApiUrl } from '../constants'
+import { ListSkeleton } from './LoadingSkeleton'
 
 const MyPermissionRequests = ({ refreshTrigger }) => {
   const API_URL = getApiUrl()
@@ -84,8 +85,8 @@ const MyPermissionRequests = ({ refreshTrigger }) => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="p-8">
+        <ListSkeleton items={3} />
       </div>
     )
   }

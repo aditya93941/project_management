@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 
 import { getApiUrl } from '../constants'
+import { EODManagerSkeleton, PageSkeleton } from '../components/LoadingSkeleton'
 
 const EODManagerView = () => {
   const API_URL = getApiUrl()
@@ -97,12 +98,7 @@ const EODManagerView = () => {
   }
 
   if (!user) {
-    return (
-      <div className="p-6 text-center">
-        <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
-      </div>
-    )
+    return <PageSkeleton />
   }
 
   if (!canView) {
@@ -116,12 +112,7 @@ const EODManagerView = () => {
   }
 
   if (isLoading) {
-    return (
-      <div className="p-6 text-center">
-        <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <p className="mt-4 text-gray-600 dark:text-gray-400">Loading EOD summaries...</p>
-      </div>
-    )
+    return <EODManagerSkeleton />
   }
 
   return (

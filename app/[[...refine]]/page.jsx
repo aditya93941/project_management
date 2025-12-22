@@ -8,7 +8,7 @@ import { Suspense } from 'react'
 import dynamicImport from 'next/dynamic'
 import { useResource, useNavigation, useIsAuthenticated, useGetIdentity } from '@refinedev/core'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { Loader2Icon } from 'lucide-react'
+import { PageSkeleton } from '../../src/components/LoadingSkeleton'
 
 // CRITICAL: Dynamically import all pages with ssr: false AND loading: undefined
 // This prevents Next.js from analyzing them during build time
@@ -108,12 +108,7 @@ function RefinePageContent() {
 // Main component wrapped in Suspense for useSearchParams
 export default function RefinePage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-screen">
-        <Loader2Icon className="size-7 text-blue-500 animate-spin" />
-        <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
-      </div>
-    }>
+    <Suspense fallback={<PageSkeleton />}>
       <RefinePageContent />
     </Suspense>
   )

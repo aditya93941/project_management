@@ -5,7 +5,7 @@ import { X, UserPlus, Users } from 'lucide-react'
 import { useList, useCreate, useInvalidate } from '@refinedev/core'
 import toast from 'react-hot-toast'
 
-const AddProjectMembersDialog = ({ isOpen, onClose, projectId, existingMembers = [] }) => {
+const AddProjectMembersDialog = ({ isOpen, onClose, projectId, existingMembers = [], onMembersAdded }) => {
     const [selectedUsers, setSelectedUsers] = useState([])
     const [isSubmitting, setIsSubmitting] = useState(false)
     const invalidateResult = useInvalidate()
@@ -107,6 +107,12 @@ const AddProjectMembersDialog = ({ isOpen, onClose, projectId, existingMembers =
 
         setIsSubmitting(false)
         setSelectedUsers([])
+        
+        // Call the callback if provided
+        if (onMembersAdded && typeof onMembersAdded === 'function') {
+            onMembersAdded()
+        }
+        
         onClose()
     }
 

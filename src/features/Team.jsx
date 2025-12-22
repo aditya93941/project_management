@@ -6,8 +6,10 @@ export const dynamic = 'force-dynamic'
 import { useState, useMemo, useEffect } from "react";
 import { UsersIcon, Search, UserPlus, Shield, Activity } from "lucide-react";
 import InviteMemberDialog from "../components/InviteMemberDialog";
+import UserAvatar from "../components/UserAvatar";
 import { useList, useIsAuthenticated, useGetIdentity } from '@refinedev/core';
 import { hasMinimumRole, UserRole } from '../utils/roles';
+import { TeamTableSkeleton, ListSkeleton } from '../components/LoadingSkeleton';
 
 const Team = () => {
     const [searchTerm, setSearchTerm] = useState("");
@@ -32,14 +34,14 @@ const Team = () => {
     // Standardized enabled condition
     const shouldFetch = hasToken && !authLoading
     
-    const { data: usersData } = useList({
+    const { data: usersData, isLoading: isLoadingUsers } = useList({
         resource: 'users',
         queryOptions: {
             enabled: shouldFetch,
         },
     })
     
-    const { data: projectsData } = useList({
+    const { data: projectsData, isLoading: isLoadingProjects } = useList({
         resource: 'projects',
         queryOptions: {
             enabled: shouldFetch,
@@ -48,59 +50,7 @@ const Team = () => {
     
     const users = usersData?.data || []
     const projects = projectsData?.data || []
-
-    // Helper function to generate initials from name
-    const getInitials = (name) => {
-        if (!name) return '?';
-        const parts = name.trim().split(/\s+/);
-        if (parts.length === 1) {
-            return parts[0].charAt(0).toUpperCase();
-        }
-        return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
-    };
-
-    // Avatar background colors
-    const avatarColors = [
-        "bg-gradient-to-br from-red-500 to-red-600",
-        "bg-gradient-to-br from-orange-500 to-orange-600",
-        "bg-gradient-to-br from-amber-500 to-amber-600",
-        "bg-gradient-to-br from-yellow-500 to-yellow-600",
-        "bg-gradient-to-br from-lime-500 to-lime-600",
-        "bg-gradient-to-br from-green-500 to-green-600",
-        "bg-gradient-to-br from-emerald-500 to-emerald-600",
-        "bg-gradient-to-br from-teal-500 to-teal-600",
-        "bg-gradient-to-br from-cyan-500 to-cyan-600",
-        "bg-gradient-to-br from-sky-500 to-sky-600",
-        "bg-gradient-to-br from-red-500 to-red-600",
-        "bg-gradient-to-br from-indigo-500 to-indigo-600",
-        "bg-gradient-to-br from-violet-500 to-violet-600",
-        "bg-gradient-to-br from-purple-500 to-purple-600",
-        "bg-gradient-to-br from-fuchsia-500 to-fuchsia-600",
-        "bg-gradient-to-br from-pink-500 to-pink-600",
-        "bg-gradient-to-br from-rose-500 to-rose-600",
-    ];
-
-    const getAvatarColor = (identifier) => {
-        if (!identifier) return avatarColors[0];
-        let hash = 0;
-        for (let i = 0; i < identifier.length; i++) {
-            hash = identifier.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        const index = Math.abs(hash) % avatarColors.length;
-        return avatarColors[index];
-    };
-
-    // Helper function to render avatar
-    const renderAvatar = (user, size = 'size-7') => {
-        const initials = user.image && !user.image.startsWith('http') ? user.image : getInitials(user.name || user.email);
-        const colorClass = getAvatarColor(user.name || user.email || 'default');
-        
-        return (
-            <div className={`${size} rounded-full ${colorClass} flex items-center justify-center text-white font-semibold text-xs`}>
-                {initials}
-            </div>
-        );
-    };
+    const isLoading = isLoadingUsers || isLoadingProjects
 
     const filteredUsers = useMemo(() => {
         return users.filter(
@@ -207,7 +157,16 @@ const Team = () => {
 
             {/* Team Members */}
             <div className="w-full">
-                {filteredUsers.length === 0 ? (
+                {isLoading ? (
+                    <>
+                        <div className="hidden sm:block">
+                            <TeamTableSkeleton />
+                        </div>
+                        <div className="sm:hidden space-y-3">
+                            <ListSkeleton items={5} />
+                        </div>
+                    </>
+                ) : filteredUsers.length === 0 ? (
                     <div className="col-span-full text-center py-16">
                         <div className="w-24 h-24 mx-auto mb-6 bg-gray-200 dark:bg-zinc-800 rounded-full flex items-center justify-center">
                             <UsersIcon className="w-12 h-12 text-gray-400 dark:text-zinc-500" />
@@ -253,7 +212,7 @@ const Team = () => {
                                             className="hover:bg-gray-50 dark:hover:bg-zinc-900/50 transition-colors"
                                         >
                                             <td className="px-6 py-2.5 whitespace-nowrap flex items-center gap-3">
-                                                {renderAvatar(user)}
+                                                <UserAvatar user={user} className="size-7" />
                                                 <span className="text-sm text-zinc-800 dark:text-white truncate">
                                                     {user?.name || "Unknown User"}
                                                 </span>
@@ -292,7 +251,7 @@ const Team = () => {
                                 >
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-3">
-                                            {renderAvatar(user, 'size-9')}
+                                            <UserAvatar user={user} className="size-9" />
                                             <div>
                                                 <p className="font-medium text-gray-900 dark:text-white">
                                                     {user?.name || "Unknown User"}

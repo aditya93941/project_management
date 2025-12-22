@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useUpdate, useDelete, useInvalidate } from '@refinedev/core';
 import Link from "next/link";
-import { Bug, CalendarIcon, GitCommit, MessageSquare, Square, Trash, XIcon, Zap } from "lucide-react";
+import { Bug, CalendarIcon, GitCommit, MessageSquare, Square, Trash, XIcon, Zap, Search } from "lucide-react";
 import UserAvatar from "./UserAvatar";
 import { logger } from '../utils/logger';
 
@@ -170,6 +170,7 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
         priority: "",
         assignee: "",
     });
+    const [searchTerm, setSearchTerm] = useState("");
 
     const assigneeList = useMemo(
         () => Array.from(new Set(optimisticTasks.map((t) => (t.assignee || t.assigneeId)?.name).filter(Boolean))),
@@ -179,14 +180,23 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
     const filteredTasks = useMemo(() => {
         return optimisticTasks.filter((task) => {
             const { status, type, priority, assignee } = filters;
-            return (
+            
+            // Filter by dropdown filters
+            const matchesFilters = (
                 (!status || task.status === status) &&
                 (!type || task.type === type) &&
                 (!priority || task.priority === priority) &&
                 (!assignee || (task.assignee || task.assigneeId)?.name === assignee)
             );
+            
+            // Filter by text search
+            const matchesSearch = !searchTerm.trim() || 
+                task.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                task.description?.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            return matchesFilters && matchesSearch;
         });
-    }, [filters, optimisticTasks]);
+    }, [filters, optimisticTasks, searchTerm]);
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -402,6 +412,17 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
         <div>
             {/* Filters */}
             <div className="flex flex-wrap gap-4 mb-4">
+                {/* Search Input */}
+                <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-400 w-4 h-4" />
+                    <input
+                        type="text"
+                        placeholder="Search tasks..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded text-sm text-zinc-900 dark:text-zinc-200 placeholder-gray-400 dark:placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                </div>
                 {["status", "type", "priority", "assignee"].map((name) => {
                     const options = {
                         status: [
@@ -439,8 +460,15 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
                 })}
 
                 {/* Reset filters */}
-                {(filters.status || filters.type || filters.priority || filters.assignee) && (
-                    <button type="button" onClick={() => setFilters({ status: "", type: "", priority: "", assignee: "" })} className="px-3 py-1 flex items-center gap-2 rounded bg-gradient-to-br from-purple-400 to-purple-500 text-zinc-100 dark:text-zinc-200 text-sm transition-colors" >
+                {(filters.status || filters.type || filters.priority || filters.assignee || searchTerm) && (
+                    <button 
+                        type="button" 
+                        onClick={() => {
+                            setFilters({ status: "", type: "", priority: "", assignee: "" });
+                            setSearchTerm("");
+                        }} 
+                        className="px-3 py-1 flex items-center gap-2 rounded bg-gradient-to-br from-purple-400 to-purple-500 text-zinc-100 dark:text-zinc-200 text-sm transition-colors" 
+                    >
                         <XIcon className="size-3" /> Reset
                     </button>
                 )}
