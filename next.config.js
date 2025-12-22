@@ -58,8 +58,10 @@ const nextConfig = {
   // Remove invalid experimental config
   
   // Environment variables validation
+  // Note: NEXT_PUBLIC_API_URL should be set in .env file
+  // The getApiUrl() function in src/constants/index.ts handles validation
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
 }
 

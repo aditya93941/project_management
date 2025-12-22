@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react'
 import { Clock, FolderOpen, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+import { getApiUrl } from '../constants'
 
 const MyPermissionRequests = ({ refreshTrigger }) => {
+  const API_URL = getApiUrl()
   const [requests, setRequests] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 

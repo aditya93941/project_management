@@ -10,11 +10,24 @@ import { Toaster } from 'react-hot-toast'
 import { dataProvider } from '../src/providers/dataProvider'
 import { authProvider } from '../src/providers/authProvider'
 import { store } from '../src/store'
-import Layout from '../src/components/Layout'
+import dynamic from 'next/dynamic'
+import ErrorBoundary from '../src/components/ErrorBoundary'
+import { getApiUrl } from '../src/constants'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+// Lazy load Layout for code splitting
+const Layout = dynamic(() => import('../src/components/Layout'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-screen">
+      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  ),
+})
 
 export function Providers({ children }) {
+  // ✅ Get API URL inside component - safe for SSR (only runs on client)
+  const API_URL = getApiUrl()
+  
   // Create QueryClient instance - useState ensures it's only created once
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
@@ -91,7 +104,9 @@ export function Providers({ children }) {
         }}
       >
         <Toaster />
-        <Layout>{children}</Layout>
+        <ErrorBoundary>
+          <Layout>{children}</Layout>
+        </ErrorBoundary>
         <RefineKbar />
       </Refine>
       </Provider>

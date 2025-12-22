@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { XIcon } from "lucide-react";
 import { useList, useIsAuthenticated, useCreate, useInvalidate } from '@refinedev/core';
 import toast from "react-hot-toast";
@@ -45,6 +46,22 @@ const CreateTaskDialog = ({ showCreateTask, setShowCreateTask, projectId, onTask
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
+
+    // Prevent body scroll when modal is open
+    useEffect(() => {
+        if (showCreateTask && mounted) {
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = 'unset';
+            };
+        }
+    }, [showCreateTask, mounted]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -103,8 +120,6 @@ const CreateTaskDialog = ({ showCreateTask, setShowCreateTask, projectId, onTask
                 onSuccess: async (data) => {
                     toast.success("Task created successfully");
                     
-                    console.log('[CreateTaskDialog] Task created successfully:', data);
-                    
                     // Normalize task data to ensure it has id/_id
                     const taskData = data?.data || data;
                     const normalizedTask = {
@@ -114,14 +129,9 @@ const CreateTaskDialog = ({ showCreateTask, setShowCreateTask, projectId, onTask
                         projectId: taskData?.projectId || projectId,
                     };
                     
-                    console.log('[CreateTaskDialog] Normalized task data:', normalizedTask);
-                    
                     // OPTIMISTIC UI: Pass the new task data to parent immediately
                     if (onTaskCreated && typeof onTaskCreated === 'function') {
-                        console.log('[CreateTaskDialog] Calling onTaskCreated with normalized task data');
                         onTaskCreated(normalizedTask);
-                    } else {
-                        console.warn('[CreateTaskDialog] onTaskCreated callback not provided');
                     }
                     
                     // Invalidate caches in background (non-blocking)
@@ -142,7 +152,7 @@ const CreateTaskDialog = ({ showCreateTask, setShowCreateTask, projectId, onTask
                         }
                     } catch (error) {
                         // Silently fail - optimistic UI already handled the update
-                        console.warn('Cache invalidation failed (non-critical):', error)
+                        // Error is non-critical, no need to log
                     }
                     
                     setShowCreateTask(false);
@@ -157,25 +167,35 @@ const CreateTaskDialog = ({ showCreateTask, setShowCreateTask, projectId, onTask
                     });
                 },
                 onError: (error) => {
-                    console.error('Create task error:', error);
                     const errorMessage = error?.message || error?.response?.data?.message || 'Failed to create task';
                     toast.error(errorMessage);
                 },
             });
         } catch (error) {
-            console.error('Create task error:', error);
             toast.error(error?.message || 'Failed to create task');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    if (!showCreateTask) return null;
+    if (!showCreateTask || !mounted) return null;
 
-    return (
-        <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur flex items-center justify-center text-left z-50">
-            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 w-full max-w-lg text-zinc-900 dark:text-zinc-200 relative">
-                <button className="absolute top-3 right-3 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" onClick={() => setShowCreateTask(false)}>
+    const modalContent = (
+        <div 
+            className="fixed inset-0 z-[9999] bg-black/20 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            style={{ margin: 0, padding: 0 }}
+            onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                    setShowCreateTask(false);
+                }
+            }}
+        >
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 w-full max-w-lg text-zinc-900 dark:text-zinc-200 relative max-h-[90vh] overflow-y-auto">
+                <button 
+                    className="absolute top-3 right-3 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" 
+                    onClick={() => setShowCreateTask(false)}
+                    aria-label="Close dialog"
+                >
                     <XIcon className="size-5" />
                 </button>
 
@@ -301,6 +321,8 @@ const CreateTaskDialog = ({ showCreateTask, setShowCreateTask, projectId, onTask
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 };
 
 export default CreateTaskDialog;

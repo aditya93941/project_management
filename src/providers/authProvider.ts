@@ -1,4 +1,5 @@
 import { AuthProvider } from '@refinedev/core'
+import { logger } from '../utils/logger'
 
 // Cache for authentication state to avoid excessive API calls
 // Try to restore from sessionStorage on initialization
@@ -45,10 +46,13 @@ const saveCache = (cache: typeof authCache) => {
 }
 
 export const authProvider = (apiUrl: string): AuthProvider => {
+  // Sanitize API URL - remove spaces, trailing slashes
+  const cleanApiUrl = apiUrl.trim().replace(/\s+/g, '').replace(/\/+$/, '')
+  
   return {
     login: async ({ email, password }) => {
       try {
-      const response = await fetch(`${apiUrl}/auth/login`, {
+      const response = await fetch(`${cleanApiUrl}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -158,7 +162,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
         }
       } catch (e) {
         // If we can't decode token, we'll need to validate with API
-        console.warn('Could not decode token for expiration check:', e)
+        logger.warn('Could not decode token for expiration check:', e)
       }
 
       // If token is expired, clear immediately
@@ -178,7 +182,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
         authCache.token === token &&
         (now - authCache.timestamp) < CACHE_DURATION
       ) {
-        console.log('[Auth Check] Using cached authentication result')
+        logger.log('[Auth Check] Using cached authentication result')
         return {
           authenticated: authCache.authenticated,
         }
@@ -205,7 +209,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
           
           // Validate with backend in background (don't await)
           // This will update the cache if there's an issue
-          fetch(`${apiUrl}/auth/me`, {
+          fetch(`${cleanApiUrl}/auth/me`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -217,7 +221,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
                 // If validation fails, clear cache but don't force logout immediately
                 // Let the next check handle it
                 if (response.status === 401) {
-                  console.warn('[Auth Check] Background validation failed with 401')
+                  logger.warn('[Auth Check] Background validation failed with 401')
                   // Don't clear immediately - might be temporary server issue
                 }
                 return null
@@ -236,18 +240,18 @@ export const authProvider = (apiUrl: string): AuthProvider => {
             })
             .catch((error) => {
               // Network error - ignore, keep optimistic result
-              console.warn('[Auth Check] Background validation error (ignored):', error)
+              logger.warn('[Auth Check] Background validation error (ignored):', error)
             })
           
           return optimisticResult
         }
       }
       
-      console.log('[Auth Check] Cache expired or token changed, validating with backend')
+      logger.log('[Auth Check] Cache expired or token changed, validating with backend')
 
       // Validate token with backend (only if cache is expired or token changed)
       try {
-        const response = await fetch(`${apiUrl}/auth/me`, {
+        const response = await fetch(`${cleanApiUrl}/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -265,7 +269,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
               // Response might not be JSON
             }
             
-            console.warn('[Auth Check] 401 from /auth/me:', errorMessage)
+            logger.warn('[Auth Check] 401 from /auth/me:', errorMessage)
             
             // Double-check token expiration locally before clearing
             try {
@@ -275,7 +279,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
                 const exp = payload.exp * 1000
                 if (exp < now) {
                   // Token is actually expired, clear it
-                  console.log('[Auth Check] Token is expired, clearing auth data')
+                  logger.log('[Auth Check] Token is expired, clearing auth data')
                   authCache = { authenticated: false, timestamp: now, token: null }
                   saveCache(authCache)
                   localStorage.removeItem('auth_token')
@@ -286,7 +290,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
                 } else {
                   // Token is not expired but backend returned 401 - might be server issue
                   // Don't clear token, use cache if available
-                  console.warn('[Auth Check] Token not expired but got 401, might be server issue. Using cache if available.')
+                  logger.warn('[Auth Check] Token not expired but got 401, might be server issue. Using cache if available.')
                   if (authCache.authenticated !== null && authCache.token === token) {
                     return {
                       authenticated: authCache.authenticated,
@@ -300,7 +304,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
               }
             } catch (e) {
               // Can't decode token, but got 401 - might be invalid token
-              console.warn('[Auth Check] Cannot decode token and got 401, clearing auth data')
+              logger.warn('[Auth Check] Cannot decode token and got 401, clearing auth data')
             authCache = { authenticated: false, timestamp: now, token: null }
               saveCache(authCache)
             localStorage.removeItem('auth_token')
@@ -312,7 +316,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
           }
           // For other errors (500, 503, etc.), don't clear token - might be server issue
           // Return cached auth state if available, otherwise assume authenticated
-          console.warn(`[Auth Check] Non-401 error (${response.status}), using cache if available`)
+          logger.warn(`[Auth Check] Non-401 error (${response.status}), using cache if available`)
           if (authCache.authenticated !== null) {
             return {
               authenticated: authCache.authenticated,
@@ -340,7 +344,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
         }
       } catch (error) {
         // Network error - don't clear token, use cache if available
-        console.warn('Network error during auth check:', error)
+        logger.warn('Network error during auth check:', error)
         
         if (authCache.authenticated !== null && authCache.token === token) {
           // Use cached result if available
@@ -393,7 +397,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
       }
 
       try {
-        const response = await fetch(`${apiUrl}/auth/me`, {
+        const response = await fetch(`${cleanApiUrl}/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -416,7 +420,7 @@ export const authProvider = (apiUrl: string): AuthProvider => {
     },
 
     register: async ({ email, password, name, image }) => {
-      const response = await fetch(`${apiUrl}/auth/register`, {
+      const response = await fetch(`${cleanApiUrl}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

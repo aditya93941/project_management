@@ -73,7 +73,6 @@ const TaskDetails = ({ projectId: propProjectId, taskId: propTaskId }) => {
     // Refetch when token becomes available
     useEffect(() => {
         if (hasToken && shouldFetch && refetch && !taskData) {
-            console.log('[TaskDetails] Token available, refetching task')
             refetch()
         }
     }, [hasToken, shouldFetch, refetch, taskData])
@@ -86,6 +85,9 @@ const TaskDetails = ({ projectId: propProjectId, taskId: propTaskId }) => {
     // Data hooks
     const { data: commentsData, isLoading: isCommentsLoading, refetch: refetchComments } = useList({
         resource: 'comments',
+        pagination: {
+            pageSize: 100, // Max items per page
+        },
         filters: [
             {
                 field: 'taskId',

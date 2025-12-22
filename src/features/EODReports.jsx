@@ -9,10 +9,11 @@ import { CheckCircle, Clock, AlertCircle, Save, Send, X, ChevronDown, ChevronUp,
 import toast from 'react-hot-toast'
 import { UserRole } from '../utils/roles'
 import Link from 'next/link'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+import { logger } from '../utils/logger'
+import { getApiUrl } from '../constants'
 
 const EODReports = () => {
+  const API_URL = getApiUrl()
   const { data: user } = useGetIdentity()
   const { data: authenticated, isLoading: authLoading } = useIsAuthenticated()
   
@@ -25,7 +26,25 @@ const EODReports = () => {
   const [showTaskSelector, setShowTaskSelector] = useState({ completed: false, inProgress: false, blockers: false, plan: false })
   const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [scheduledTime, setScheduledTime] = useState('')
+  const [scheduledTimeOnly, setScheduledTimeOnly] = useState('') // For time picker (HH:MM format)
   const [timeUntilEndOfDay, setTimeUntilEndOfDay] = useState(null)
+  
+  // Get today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  }
+  
+  // Get current time in HH:MM format
+  const getCurrentTime = () => {
+    const now = new Date()
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  }
+  
+  // Get end of day time (11:59 PM)
+  const getEndOfDayTime = () => {
+    return '23:59'
+  }
   const [showSubmitDropdown, setShowSubmitDropdown] = useState(false)
   
   // Auto-save state
@@ -94,7 +113,7 @@ const EODReports = () => {
           setAccessibleTasks(assignedTasks)
         }
       } catch (error) {
-        console.error('Error fetching accessible tasks:', error)
+        logger.error('Error fetching accessible tasks:', error)
       } finally {
         setLoadingTasks(false)
       }
@@ -143,29 +162,27 @@ const EODReports = () => {
             }))
             
             // Update form data immediately - this is what makes refresh button fast!
+            // Always add done/completed tasks automatically, even if form has existing data
             setFormData(prev => {
-              // If there's existing data, merge it. Otherwise use new tasks.
-              const existingCompleted = prev.completedTasks.length > 0 ? prev.completedTasks : []
-              const existingInProgress = prev.inProgressTasks.length > 0 ? prev.inProgressTasks : []
-              
-              // Merge to avoid duplicates
-              const allCompletedIds = new Set([...existingCompleted.map(t => t.taskId), ...autoCompleted.map(t => t.taskId)])
-              const allInProgressIds = new Set([...existingInProgress.map(t => t.taskId), ...autoInProgress.map(t => t.taskId)])
+              // Merge to avoid duplicates - prioritize auto-fetched tasks
+              const allCompletedIds = new Set([...autoCompleted.map(t => t.taskId), ...prev.completedTasks.map(t => t.taskId)])
+              const allInProgressIds = new Set([...autoInProgress.map(t => t.taskId), ...prev.inProgressTasks.map(t => t.taskId)])
               
               return {
                 ...prev,
+                // Always include all completed tasks (done tasks should be auto-added)
                 completedTasks: Array.from(allCompletedIds).map(taskId => {
-                  const existing = existingCompleted.find(t => t.taskId === taskId)
+                  const existing = prev.completedTasks.find(t => t.taskId === taskId)
                   return existing || { taskId }
                 }),
                 inProgressTasks: Array.from(allInProgressIds).map(taskId => {
-                  const existing = existingInProgress.find(t => t.taskId === taskId)
+                  const existing = prev.inProgressTasks.find(t => t.taskId === taskId)
                   return existing || { taskId, progress: 0 }
                 }),
               }
             })
             
-            console.log('[EODReports] Tasks populated IMMEDIATELY:', {
+            logger.log('[EODReports] Tasks populated IMMEDIATELY:', {
               completed: autoCompleted.length,
               inProgress: autoInProgress.length
             })
@@ -257,14 +274,20 @@ const EODReports = () => {
             const filteredNewInProgress = newInProgress.filter(t => accessibleTaskIds.has(String(t.taskId)))
             
             // Merge saved tasks with new status changes (avoid duplicates)
-            const allCompletedIds = new Set([...filteredSavedCompleted.map(t => t.taskId), ...filteredNewCompleted.map(t => t.taskId)])
-            const allInProgressIds = new Set([...filteredSavedInProgress.map(t => t.taskId), ...filteredNewInProgress.map(t => t.taskId)])
+            // Always include all completed/done tasks - prioritize auto-fetched ones
+            const allCompletedIds = new Set([...filteredNewCompleted.map(t => t.taskId), ...filteredSavedCompleted.map(t => t.taskId)])
+            const allInProgressIds = new Set([...filteredNewInProgress.map(t => t.taskId), ...filteredSavedInProgress.map(t => t.taskId)])
             
             const mergedCompleted = Array.from(allCompletedIds).map(taskId => {
               // Prefer saved task (has progress info), otherwise use new
               const saved = filteredSavedCompleted.find(t => t.taskId === taskId)
               return saved || { taskId }
             })
+            
+            // Ensure all done/completed tasks from status changes are included
+            if (filteredNewCompleted.length > 0) {
+              logger.log('[EODReports] Auto-adding completed tasks:', filteredNewCompleted.length)
+            }
             
             const mergedInProgress = Array.from(allInProgressIds).map(taskId => {
               // Prefer saved task (has progress info), otherwise use new
@@ -302,7 +325,7 @@ const EODReports = () => {
               setPlanMode('text')
             }
             
-            console.log('[EODReports] Form populated:', {
+            logger.log('[EODReports] Form populated:', {
               savedCompleted: savedCompleted.length,
               savedInProgress: savedInProgress.length,
               newCompleted: newCompleted.length,
@@ -346,7 +369,7 @@ const EODReports = () => {
             }))
             setPlanMode('text')
             
-            console.log('[EODReports] Auto-populated new report immediately:', {
+            logger.log('[EODReports] Auto-populated new report immediately:', {
               completed: autoCompleted.length,
               inProgress: autoInProgress.length,
               tasksWithStatusChanges: data.tasksWithStatusChanges
@@ -401,13 +424,13 @@ const EODReports = () => {
                 }
               }
             } catch (err) {
-              console.error('Error fetching status changes:', err)
+              logger.error('Error fetching status changes:', err)
             }
           }
           setTodayEOD(null)
         }
       } catch (error) {
-        console.error('Error fetching today EOD:', error)
+        logger.error('Error fetching today EOD:', error)
         toast.error('Failed to load EOD report')
       } finally {
         setIsLoading(false)
@@ -432,7 +455,7 @@ const EODReports = () => {
       formData.blockedTasks.some(t => !accessibleTaskIds.has(String(t)))
 
     if (hasInvalidTasks) {
-      console.log('[EODReports] Cleaning up tasks not assigned to user')
+      logger.log('[EODReports] Cleaning up tasks not assigned to user')
       setFormData(prev => ({
         ...prev,
         completedTasks: prev.completedTasks.filter(t => accessibleTaskIds.has(String(t.taskId))),
@@ -500,7 +523,7 @@ const EODReports = () => {
               }
             }
           } catch (error) {
-            console.error('Error refreshing EOD data:', error)
+            logger.error('Error refreshing EOD data:', error)
           }
         }
         
@@ -514,7 +537,7 @@ const EODReports = () => {
 
 
   const handleTaskToggle = (taskId, category) => {
-    console.log('[EODReports] handleTaskToggle', { taskId, category, type: typeof taskId })
+    logger.log('[EODReports] handleTaskToggle', { taskId, category, type: typeof taskId })
     if (!taskId) {
       console.error('[EODReports] Attempted to toggle task with invalid ID:', taskId)
       toast.error('Cannot select task with invalid ID')
@@ -2000,7 +2023,7 @@ const EODReports = () => {
               
               {/* Unified Submit Button with Dropdown */}
               <div className="relative">
-                <div className="flex gap-2">
+                <div className="flex gap-2 relative">
                   <button
                     onClick={() => handleSubmit(true)}
                     disabled={isSubmitting || (formData.completedTasks.length === 0 && formData.inProgressTasks.length === 0)}
@@ -2017,33 +2040,33 @@ const EODReports = () => {
                   >
                     <ChevronDown className={`w-4 h-4 transition-transform ${showSubmitDropdown ? 'rotate-180' : ''}`} />
                   </button>
+                  
+                  {/* Dropdown menu - positioned relative to button container */}
+                  {showSubmitDropdown && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowSubmitDropdown(false)}
+                      />
+                      <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-800 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-700 z-30">
+                        <button
+                          onClick={() => {
+                            setShowScheduleModal(true)
+                            setShowSubmitDropdown(false)
+                          }}
+                          disabled={isSubmitting}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors rounded-lg"
+                        >
+                          <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">Schedule Submit</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Submit at a specific time</div>
+                          </div>
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
-                
-                {/* Dropdown menu */}
-                {showSubmitDropdown && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-10" 
-                      onClick={() => setShowSubmitDropdown(false)}
-                    />
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 z-20">
-                      <button
-                        onClick={() => {
-                          setShowScheduleModal(true)
-                          setShowSubmitDropdown(false)
-                        }}
-                        disabled={isSubmitting}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors rounded-t-lg"
-                      >
-                        <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">Schedule Submit</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">Submit at a specific time</div>
-                        </div>
-                      </button>
-                    </div>
-                  </>
-                )}
               </div>
               
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -2058,39 +2081,98 @@ const EODReports = () => {
               <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 max-w-md w-full mx-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Schedule Submission</h3>
                 <div className="space-y-4">
+                  {/* Date (fixed to today) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={getTodayDate()}
+                      disabled
+                      className="w-full px-4 py-2 rounded border border-zinc-300 dark:border-zinc-700 bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Date is fixed to today
+                    </p>
+                  </div>
+                  
+                  {/* Time (selectable) */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Submission Time
                     </label>
                     <input
-                      type="datetime-local"
-                      value={scheduledTime}
-                      onChange={(e) => setScheduledTime(e.target.value)}
-                      min={new Date().toISOString().slice(0, 16)}
-                      max={(() => {
-                        const today = new Date()
-                        today.setHours(23, 59, 0, 0)
-                        return today.toISOString().slice(0, 16)
-                      })()}
+                      type="time"
+                      value={scheduledTimeOnly || getCurrentTime()}
+                      onChange={(e) => {
+                        const selectedTime = e.target.value
+                        const currentTime = getCurrentTime()
+                        const endTime = getEndOfDayTime()
+                        
+                        // Validate time is between current time and 11:59 PM
+                        if (selectedTime >= currentTime && selectedTime <= endTime) {
+                          setScheduledTimeOnly(selectedTime)
+                        } else if (selectedTime < currentTime) {
+                          toast.error(`Time must be after ${currentTime}`)
+                          setScheduledTimeOnly('')
+                        } else {
+                          toast.error('Time must be before 11:59 PM')
+                          setScheduledTimeOnly('')
+                        }
+                      }}
+                      min={getCurrentTime()}
+                      max={getEndOfDayTime()}
                       className="w-full px-4 py-2 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Must be before 11:59 PM today
+                      Must be between {getCurrentTime()} and 23:59 today
                     </p>
                   </div>
+                  
                   <div className="flex gap-3">
                     <button
                       onClick={() => {
                         setShowScheduleModal(false)
                         setScheduledTime('')
+                        setScheduledTimeOnly('')
                       }}
                       className="flex-1 px-4 py-2 rounded bg-gray-200 dark:bg-zinc-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-zinc-600 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={() => handleSubmit(false)}
-                      disabled={!scheduledTime || isSubmitting}
+                      onClick={() => {
+                        if (!scheduledTimeOnly) {
+                          toast.error('Please select a time')
+                          return
+                        }
+                        
+                        // Combine today's date with selected time
+                        const [hours, minutes] = scheduledTimeOnly.split(':')
+                        const scheduledDateTime = new Date()
+                        scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+                        
+                        // Validate the time
+                        const now = new Date()
+                        const endOfDay = new Date()
+                        endOfDay.setHours(23, 59, 59, 999)
+                        
+                        if (scheduledDateTime <= now) {
+                          toast.error('Time must be in the future')
+                          return
+                        }
+                        
+                        if (scheduledDateTime > endOfDay) {
+                          toast.error('Time must be before 11:59 PM')
+                          return
+                        }
+                        
+                        // Set the full datetime for submission (ISO format)
+                        setScheduledTime(scheduledDateTime.toISOString())
+                        handleSubmit(false)
+                      }}
+                      disabled={!scheduledTimeOnly || isSubmitting}
                       className="flex-1 px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 transition-colors"
                     >
                       {isSubmitting ? 'Scheduling...' : 'Schedule'}

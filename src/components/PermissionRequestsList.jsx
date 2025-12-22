@@ -5,9 +5,10 @@ import { Clock, FolderOpen, User, CheckCircle, XCircle, MessageSquare } from 'lu
 import { useGetIdentity } from '@refinedev/core'
 import toast from 'react-hot-toast'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+import { getApiUrl } from '../constants'
 
 const PermissionRequestsList = ({ refreshTrigger, onReview }) => {
+  const API_URL = getApiUrl()
   const { data: currentUser } = useGetIdentity()
   const [requests, setRequests] = useState([])
   const [isLoading, setIsLoading] = useState(true)

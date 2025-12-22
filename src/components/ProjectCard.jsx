@@ -12,10 +12,10 @@ const statusColors = {
 
 const ProjectCard = ({ project }) => {
     const { show } = useNavigation();
-    
+
     // Get id from either id or _id field (normalized data should have id)
     const projectId = project.id || project._id;
-    
+
     const handleClick = () => {
         if (projectId) {
             show('projects', projectId, { tab: 'tasks' });
@@ -23,9 +23,18 @@ const ProjectCard = ({ project }) => {
     };
 
     return (
-        <div 
+        <div
             onClick={handleClick}
             className="block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 hover:border-gray-300 dark:hover:border-zinc-700 rounded-lg p-5 transition-all duration-200 group cursor-pointer"
+            role="button"
+            tabIndex={0}
+            aria-label={`View project ${project.name}`}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleClick()
+                }
+            }}
         >
             {/* Header */}
             <div className="flex items-start justify-between mb-3">
@@ -53,9 +62,6 @@ const ProjectCard = ({ project }) => {
                 <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-500 dark:text-zinc-500">Progress</span>
                     <span className="text-gray-400 dark:text-zinc-400">{project.progress || 0}%</span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-zinc-800 h-1.5 rounded">
-                    <div className="h-1.5 rounded bg-blue-500" style={{ width: `${project.progress || 0}%` }} />
                 </div>
             </div>
         </div>

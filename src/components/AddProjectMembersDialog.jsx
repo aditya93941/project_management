@@ -53,7 +53,8 @@ const AddProjectMembersDialog = ({ isOpen, onClose, projectId, existingMembers =
         setIsSubmitting(true)
         toast.loading(`Adding ${selectedUsers.length} member(s)...`)
 
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+        const { getApiUrl } = await import('../constants')
+        const API_URL = getApiUrl()
         const token = localStorage.getItem('auth_token')
 
         let successCount = 0

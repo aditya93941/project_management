@@ -1,16 +1,19 @@
 'use client'
 
-import { SearchIcon, PanelLeft, LogOut, User, Bell } from 'lucide-react'
+import { SearchIcon, PanelLeft, User, Bell, LogOut } from 'lucide-react'
+import toast, { Toaster } from 'react-hot-toast'
 import { useDispatch, useSelector } from 'react-redux'
 import { useGetIdentity, useLogout, useList, useUpdate, useCustomMutation, useInvalidate } from '@refinedev/core'
 import { toggleTheme } from '../features/themeSlice'
 import { MoonIcon, SunIcon } from 'lucide-react'
 import { assets } from '../assets/assets'
 import { roleLabels } from '../utils/roles'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import { useRouter } from "next/navigation"
-import UserAvatar from './UserAvatar';
+import UserAvatar from './UserAvatar'
+import { getApiUrl } from '../constants'
+import ProfileSettingsDialog from './ProfileSettingsDialog'
 
 const Navbar = ({ setIsSidebarOpen }) => {
     const { data: user } = useGetIdentity()
@@ -20,6 +23,47 @@ const Navbar = ({ setIsSidebarOpen }) => {
     const router = useRouter();
 
     const [showNotifications, setShowNotifications] = useState(false);
+    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+    const [showProfileSettings, setShowProfileSettings] = useState(false);
+    const notificationsRef = useRef(null);
+    const profileRef = useRef(null);
+
+    // Browser notification permission and setup
+    const [notificationPermission, setNotificationPermission] = useState('default');
+
+    useEffect(() => {
+        // Check if browser supports notifications
+        if ('Notification' in window) {
+            setNotificationPermission(Notification.permission);
+            
+            // Request permission if not already granted/denied
+            if (Notification.permission === 'default') {
+                Notification.requestPermission().then(permission => {
+                    setNotificationPermission(permission);
+                });
+            }
+        }
+    }, []);
+
+    // Close notifications dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
+                setShowNotifications(false);
+            }
+            if (profileRef.current && !profileRef.current.contains(event.target)) {
+                setShowProfileDropdown(false);
+            }
+        };
+
+        if (showNotifications || showProfileDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showNotifications, showProfileDropdown]);
 
     const { data: notificationData, refetch } = useList({
         resource: 'notifications',
@@ -44,12 +88,12 @@ const Navbar = ({ setIsSidebarOpen }) => {
     const handleOpenNotifications = () => {
         const newShowState = !showNotifications;
         setShowNotifications(newShowState);
-        
+
         // When opening the panel (not closing), mark all unread notifications as read
         if (newShowState && unreadCount > 0) {
             // Mark all as read immediately
             markAllReadMutate({
-                url: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/notifications/read-all`,
+                url: `${getApiUrl()}/notifications/read-all`,
                 method: 'put',
                 values: {},
                 onSuccess: () => {
@@ -70,6 +114,63 @@ const Navbar = ({ setIsSidebarOpen }) => {
             });
         }
     };
+
+    // Play sound and show toast when new unread notifications arrive
+    const [prevUnreadCount, setPrevUnreadCount] = useState(0);
+
+    useEffect(() => {
+        if (unreadCount > prevUnreadCount) {
+            // New notification(s) arrived
+            // Play sound
+            const sound = new Audio('/sounds/notification-sound-effect-372475.mp3');
+            sound.play().catch(e => console.error('Error playing notification sound:', e));
+
+            // Show browser notification if permission is granted
+            if ('Notification' in window && Notification.permission === 'granted') {
+                const latestNotification = notifications[0];
+                if (latestNotification && !latestNotification.isRead) {
+                    const senderName = latestNotification.senderId?.name || 'System';
+                    const message = latestNotification.message.replace(senderName, '').trim();
+                    
+                    new Notification('P2 Internal Tool', {
+                        body: `${senderName}: ${message}`,
+                        icon: '/icon.svg',
+                        badge: '/icon.svg',
+                        tag: `notification-${latestNotification.id || latestNotification._id}`, // Prevent duplicate notifications
+                        requireInteraction: false,
+                        silent: false,
+                    });
+                }
+            }
+
+            // Show toast for the latest notification
+            const latestNotification = notifications[0];
+            if (latestNotification && !latestNotification.isRead) {
+                toast((t) => (
+                    <div onClick={() => {
+                        toast.dismiss(t.id);
+                        handleNotificationClick(latestNotification);
+                    }} className="cursor-pointer flex items-center gap-2">
+                        <span className="font-medium text-sm">
+                            {latestNotification.senderId?.name}:
+                        </span>
+                        <span className="text-sm">
+                            {latestNotification.message.replace(latestNotification.senderId?.name, '')}
+                        </span>
+                    </div>
+                ), {
+                    duration: 4000,
+                    position: 'top-right',
+                    style: {
+                        background: '#fff',
+                        color: '#333',
+                        border: '1px solid #E5E7EB',
+                    },
+                });
+            }
+        }
+        setPrevUnreadCount(unreadCount);
+    }, [unreadCount, notifications]);
 
     const handleNotificationClick = (notification) => {
         // Mark notification as read immediately
@@ -98,7 +199,7 @@ const Navbar = ({ setIsSidebarOpen }) => {
         // Navigation Logic
         // Handle permission-related notifications - navigate to project
         const permissionTypes = ['PERMISSION_APPROVED', 'PERMISSION_REJECTED', 'PERMISSION_GRANTED', 'PERMISSION_REVOKED', 'PERMISSION_EXPIRING', 'PERMISSION_EXPIRED', 'PERMISSION_REQUESTED'];
-        
+
         if (permissionTypes.includes(notification.type)) {
             // For permission notifications, extract projectId (could be object or string)
             let projectId = null;
@@ -109,7 +210,7 @@ const Navbar = ({ setIsSidebarOpen }) => {
                     projectId = notification.projectId;
                 }
             }
-            
+
             if (projectId) {
                 router.push(`/projects/${projectId}`);
                 return;
@@ -147,6 +248,7 @@ const Navbar = ({ setIsSidebarOpen }) => {
 
     return (
         <div className="w-full bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 px-6 xl:px-16 py-3 flex-shrink-0">
+            <Toaster />
             <div className="flex items-center justify-between max-w-6xl mx-auto">
                 {/* Left section */}
                 <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -170,7 +272,7 @@ const Navbar = ({ setIsSidebarOpen }) => {
                 <div className="flex items-center gap-3">
 
                     {/* Notifications */}
-                    <div className="relative">
+                    <div className="relative" ref={notificationsRef}>
                         <button
                             onClick={handleOpenNotifications}
                             className="p-2 rounded-lg transition-colors text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 relative"
@@ -229,34 +331,72 @@ const Navbar = ({ setIsSidebarOpen }) => {
                         }
                     </button>
 
-                    {/* User Info & Logout */}
-                    <div className="flex items-center gap-3">
-                        {user && (
-                            <div className="hidden sm:flex flex-col items-end">
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                    {user.name || user.email}
-                                </span>
-                                {user.role && (
-                                    <span className="text-xs text-gray-500 dark:text-zinc-400">
-                                        {roleLabels[user.role] || user.role}
+                    {/* User Info & Profile */}
+                    <div className="relative" ref={profileRef}>
+                        <button
+                            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                            className="flex items-center gap-2 p-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
+                            title="Profile"
+                        >
+                            {user && (
+                                <div className="hidden sm:flex flex-col items-end">
+                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {user.name || user.email}
                                     </span>
-                                )}
+                                    {user.role && (
+                                        <span className="text-xs text-gray-500 dark:text-zinc-400">
+                                            {roleLabels[user.role] || user.role}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                            <UserAvatar
+                                user={user}
+                                className="size-8 border-2 border-gray-200 dark:border-zinc-700 cursor-pointer"
+                            />
+                        </button>
+
+                        {showProfileDropdown && (
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg shadow-xl z-50 overflow-hidden">
+                                <div className="p-2">
+                                    <button
+                                        onClick={() => {
+                                            setShowProfileSettings(true);
+                                            setShowProfileDropdown(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors rounded-lg"
+                                    >
+                                        <User className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                        <div>
+                                            <div className="text-sm font-medium text-gray-900 dark:text-white">Profile Settings</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">Update your profile</div>
+                                        </div>
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowProfileDropdown(false);
+                                            logout();
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors rounded-lg text-red-600 dark:text-red-400"
+                                    >
+                                        <LogOut className="w-4 h-4" />
+                                        <div>
+                                            <div className="text-sm font-medium">Logout</div>
+                                            <div className="text-xs opacity-75">Sign out of your account</div>
+                                        </div>
+                                    </button>
+                                </div>
                             </div>
                         )}
-                        <UserAvatar
-                            user={user}
-                            className="size-8 border-2 border-gray-200 dark:border-zinc-700"
-                        />
-                        <button
-                            onClick={() => logout()}
-                            className="p-2 rounded-lg transition-colors text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800"
-                            title="Logout"
-                        >
-                            <LogOut size={18} />
-                        </button>
                     </div>
                 </div>
             </div>
+
+            {/* Profile Settings Dialog */}
+            <ProfileSettingsDialog 
+                isOpen={showProfileSettings} 
+                onClose={() => setShowProfileSettings(false)} 
+            />
         </div>
     )
 }

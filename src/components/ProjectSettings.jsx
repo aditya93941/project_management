@@ -34,7 +34,7 @@ const ProjectSettings = ({ project }) => {
         priority: proj?.priority || 'MEDIUM',
         start_date: proj?.start_date ? new Date(proj.start_date).toISOString().split('T')[0] : '',
         end_date: proj?.end_date ? new Date(proj.end_date).toISOString().split('T')[0] : '',
-        progress: proj?.progress || 0,
+        // Progress is auto-calculated from tasks, removed from form
     })
 
     const [formData, setFormData] = useState(() => getInitialFormData(project))
@@ -44,7 +44,7 @@ const ProjectSettings = ({ project }) => {
         if (project) {
             setFormData(getInitialFormData(project))
         }
-    }, [project?.id, project?.name, project?.description, project?.status, project?.priority, project?.start_date, project?.end_date, project?.progress])
+    }, [project?.id, project?.name, project?.description, project?.status, project?.priority, project?.start_date, project?.end_date])
 
     const [isSaving, setIsSaving] = useState(false)
 
@@ -64,7 +64,7 @@ const ProjectSettings = ({ project }) => {
             description: formData.description || undefined,
             status: formData.status,
             priority: formData.priority,
-            progress: formData.progress,
+            // Progress is auto-calculated from tasks, so we don't include it here
         }
 
         // Add dates if provided
@@ -266,24 +266,7 @@ const ProjectSettings = ({ project }) => {
                         </div>
                     </div>
 
-                    {/* Progress */}
-                    <div>
-                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                            Progress: {formData.progress}%
-                        </label>
-                        <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={formData.progress}
-                            onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) })}
-                            className="w-full"
-                        />
-                        <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                            <span>0%</span>
-                            <span>100%</span>
-                        </div>
-                    </div>
+                    {/* Progress slider removed - progress is auto-calculated from tasks */}
                 </div>
 
                 {/* Action Buttons */}

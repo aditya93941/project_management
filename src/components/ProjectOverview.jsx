@@ -99,13 +99,17 @@ const ProjectOverview = () => {
 
                                 <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-500 mb-3">
                                     <div className="flex items-center gap-4">
-                                        {/* Members count - handle both cases: when members array exists or when we need to fetch */}
-                                        {(project.members?.length > 0 || project.members === undefined) && (
-                                            <div className="flex items-center gap-1">
-                                                <UsersIcon className="w-3 h-3" />
-                                                {project.members?.length || '0'} members
-                                            </div>
-                                        )}
+                                        {/* Members count - include owner in count */}
+                                        <div className="flex items-center gap-1">
+                                            <UsersIcon className="w-3 h-3" />
+                                            {(() => {
+                                                const uniqueMembers = new Set(project?.members?.map(m => m.id || m._id) || []);
+                                                if (project?.owner) {
+                                                    uniqueMembers.add(project.owner.id || project.owner._id);
+                                                }
+                                                return uniqueMembers.size;
+                                            })()} members
+                                        </div>
                                         {project.end_date && (
                                             <div className="flex items-center gap-1">
                                                 <Calendar className="w-3 h-3" />

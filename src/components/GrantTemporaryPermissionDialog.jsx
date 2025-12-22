@@ -5,9 +5,10 @@ import { X, Clock, User, FolderOpen, Calendar } from 'lucide-react'
 import { useList, useGetIdentity } from '@refinedev/core'
 import toast from 'react-hot-toast'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+import { getApiUrl } from '../constants'
 
 const GrantTemporaryPermissionDialog = ({ show, setShow, onSuccess }) => {
+  const API_URL = getApiUrl()
   const { data: currentUser } = useGetIdentity()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({

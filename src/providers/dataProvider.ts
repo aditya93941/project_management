@@ -1,6 +1,10 @@
 import { DataProvider } from '@refinedev/core'
+import { logger } from '../utils/logger'
 
 export const dataProvider = (apiUrl: string): DataProvider => {
+  // Sanitize API URL - remove spaces, trailing slashes
+  const cleanApiUrl = apiUrl.trim().replace(/\s+/g, '').replace(/\/+$/, '')
+  
   // Helper function to get auth token
   const getAuthHeaders = (): Record<string, string> => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
@@ -127,7 +131,7 @@ export const dataProvider = (apiUrl: string): DataProvider => {
         }
       }
 
-      const url = new URL(`${apiUrl}/${resource}`)
+      const url = new URL(`${cleanApiUrl}/${resource}`)
 
       // Pagination - Backend expects 'page' and 'limit'
       if (pagination) {
@@ -170,9 +174,7 @@ export const dataProvider = (apiUrl: string): DataProvider => {
         })
       }
 
-      console.log(`[DataProvider] Fetching ${resource}:`, url.toString())
       const authHeaders = getAuthHeaders()
-      console.log(`[DataProvider] Auth headers:`, { hasToken: !!authHeaders.Authorization })
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController()
@@ -185,12 +187,11 @@ export const dataProvider = (apiUrl: string): DataProvider => {
       })
 
         clearTimeout(timeoutId)
-        console.log(`[DataProvider] Response status for ${resource}:`, response.status, response.statusText)
         
         // Log response for debugging
         if (!response.ok) {
           const errorText = await response.clone().text().catch(() => 'Unable to read error response')
-          console.error(`[DataProvider] Error response for ${resource}:`, {
+          logger.error(`[DataProvider] Error response for ${resource}:`, {
             status: response.status,
             statusText: response.statusText,
             body: errorText
@@ -200,23 +201,12 @@ export const dataProvider = (apiUrl: string): DataProvider => {
         await handleError(response)
 
         const data = await response.json()
-        console.log(`[DataProvider] Raw data for ${resource}:`, { 
-          hasData: !!data.data, 
-          dataLength: Array.isArray(data.data) ? data.data.length : 'not array',
-          total: data.total,
-          sample: Array.isArray(data.data) && data.data.length > 0 ? data.data[0] : null
-        })
 
         // Backend returns: { data: [...], total, page, limit }
         const records = data.data || data
         const normalizedRecords = Array.isArray(records) 
           ? records.map((r: any) => normalizeRecord(r))
           : normalizeRecord(records)
-        
-        console.log(`[DataProvider] Normalized data for ${resource}:`, {
-          dataLength: Array.isArray(normalizedRecords) ? normalizedRecords.length : 'not array',
-          sample: Array.isArray(normalizedRecords) && normalizedRecords.length > 0 ? normalizedRecords[0] : null
-        })
         
         return {
           data: normalizedRecords,
@@ -234,47 +224,32 @@ export const dataProvider = (apiUrl: string): DataProvider => {
     },
 
     getOne: async ({ resource, id, meta }) => {
-      console.log('[DataProvider] getOne called:', { resource, id, meta })
-      
       // Check token - return null if missing (query should be disabled)
       const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
       if (!token) {
-        console.log('[DataProvider] getOne: No token, returning null')
         return { data: null }
       }
 
-      const url = `${apiUrl}/${resource}/${id}`
-      console.log('[DataProvider] getOne: Fetching from:', url)
+      const url = `${cleanApiUrl}/${resource}/${id}`
 
       try {
         const response = await fetch(url, {
           headers: getAuthHeaders(),
         })
 
-        console.log('[DataProvider] getOne: Response status:', response.status, response.statusText)
-
         await handleError(response)
 
         const data = await response.json()
-        console.log('[DataProvider] getOne: Response data:', { 
-          hasData: !!data, 
-          dataKeys: data ? Object.keys(data) : [],
-          sample: data 
-        })
 
         // Backend returns the object directly for getOne
         // Special handling for projects (includes members and tasks)
         // Special handling for tasks (includes comments)
         // Normalize _id to id
         const normalized = normalizeRecord(data)
-        console.log('[DataProvider] getOne: Normalized data:', { 
-          hasData: !!normalized, 
-          normalizedId: normalized?.id || normalized?._id 
-        })
         
         return { data: normalized }
       } catch (error: any) {
-        console.error('[DataProvider] getOne: Error:', error)
+        logger.error('[DataProvider] getOne: Error:', error)
         throw error
       }
     },
@@ -288,7 +263,7 @@ export const dataProvider = (apiUrl: string): DataProvider => {
         throw error
       }
 
-      const response = await fetch(`${apiUrl}/${resource}`, {
+      const response = await fetch(`${cleanApiUrl}/${resource}`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(variables),
@@ -312,7 +287,7 @@ export const dataProvider = (apiUrl: string): DataProvider => {
         throw error
       }
 
-      const response = await fetch(`${apiUrl}/${resource}/${id}`, {
+      const response = await fetch(`${cleanApiUrl}/${resource}/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(variables),
@@ -336,7 +311,7 @@ export const dataProvider = (apiUrl: string): DataProvider => {
         throw error
       }
 
-      const response = await fetch(`${apiUrl}/${resource}/${id}`, {
+      const response = await fetch(`${cleanApiUrl}/${resource}/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       })
@@ -350,7 +325,7 @@ export const dataProvider = (apiUrl: string): DataProvider => {
       return { data: { id, ...data } as any }
     },
 
-    getApiUrl: () => apiUrl,
+    getApiUrl: () => cleanApiUrl,
 
     // Custom methods for project member management
     custom: async ({ url, method = 'GET', payload, headers, meta }) => {

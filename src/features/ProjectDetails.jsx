@@ -16,6 +16,7 @@ import { useShow, useIsAuthenticated, useGetIdentity, useInvalidate } from '@ref
 import { hasMinimumRole, UserRole } from '../utils/roles'
 import { canCreateTaskByRole, hasTemporaryPermission } from '../utils/taskPermissions'
 import AccessDenied from '../components/AccessDenied'
+import { logger } from '../utils/logger'
 
 export default function ProjectDetails({ id: propId, tab: propTab }) {
     const { list, show } = useNavigation();
@@ -24,7 +25,7 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const tab = propTab || 'tasks';
-    
+
     // Get ID from prop, resource hook, or extract from pathname
     // Pathname format: /projects/:id or /projects/:id?tab=...
     let extractedId = null;
@@ -37,16 +38,16 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
     const id = propId || resourceId || extractedId;
     const { data: authenticated, isLoading: authLoading } = useIsAuthenticated()
     const { data: user } = useGetIdentity()
-    
+
     // Permission checks
     const canCreateTaskByRoleCheck = canCreateTaskByRole(user?.role)
     const canViewSettings = hasMinimumRole(user?.role, UserRole.TEAM_LEAD)
-    
+
     // Check for temporary permission (for developers)
     // Developers with temporary permission can create and assign tasks
     const [hasTempPermission, setHasTempPermission] = useState(false)
     const [checkingPermission, setCheckingPermission] = useState(false)
-    
+
     useEffect(() => {
         const checkPermission = async () => {
             // If user already has role-based permission, no need to check
@@ -54,12 +55,12 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                 setHasTempPermission(false)
                 return
             }
-            
+
             const userId = user?.id || user?._id
-            
+
             // Check for temporary permission for any user who doesn't have role-based permission
             if (id && userId) {
-                console.log('[ProjectDetails] Checking temporary permission:', {
+                logger.log('[ProjectDetails] Checking temporary permission:', {
                     userId: userId,
                     projectId: id,
                     role: user.role,
@@ -67,22 +68,23 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                 })
                 setCheckingPermission(true)
                 try {
-                    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+                    const { getApiUrl } = await import('../constants')
+                    const API_URL = getApiUrl()
                     const hasPermission = await hasTemporaryPermission(userId, id, API_URL)
-                    console.log('[ProjectDetails] Permission check result:', {
+                    logger.log('[ProjectDetails] Permission check result:', {
                         hasPermission,
                         userId: userId,
                         projectId: id
                     })
                     setHasTempPermission(hasPermission)
                 } catch (error) {
-                    console.error('[ProjectDetails] Error checking temporary permission:', error)
+                    logger.error('[ProjectDetails] Error checking temporary permission:', error)
                     setHasTempPermission(false)
                 } finally {
                     setCheckingPermission(false)
                 }
             } else {
-                console.log('[ProjectDetails] Missing required data for permission check:', {
+                logger.log('[ProjectDetails] Missing required data for permission check:', {
                     hasId: !!id,
                     hasUserId: !!userId,
                     role: user?.role
@@ -90,9 +92,9 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                 setHasTempPermission(false)
             }
         }
-        
+
         const userId = user?.id || user?._id
-        
+
         // Run check if we have both id and user, or if user data changes
         if (id && userId) {
             checkPermission()
@@ -107,15 +109,15 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
             return () => clearTimeout(timeout)
         }
     }, [id, user?.id, user?._id, user?.role, canCreateTaskByRoleCheck])
-    
+
     // Can create task if: has role permission OR has temporary permission
     const canCreateTask = canCreateTaskByRoleCheck || hasTempPermission
-    
+
     // Debug logging for permission state
     useEffect(() => {
         const userId = user?.id || user?._id
         if (typeof window !== 'undefined' && id && userId) {
-            console.log('[ProjectDetails] Permission Debug:', {
+            logger.log('[ProjectDetails] Permission Debug:', {
                 canCreateTaskByRoleCheck,
                 hasTempPermission,
                 canCreateTask,
@@ -126,14 +128,14 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                 userRole: user?.role,
                 willShowButton: canCreateTask || checkingPermission
             })
-            
+
             // If no permission found and user is DEVELOPER, log a warning
             if (user?.role === UserRole.DEVELOPER && !canCreateTask && !checkingPermission) {
-                console.warn('[ProjectDetails] DEVELOPER user has no permission to create tasks. Check if temporary permission was granted.')
+                logger.warn('[ProjectDetails] DEVELOPER user has no permission to create tasks. Check if temporary permission was granted.')
             }
         }
     }, [canCreateTaskByRoleCheck, hasTempPermission, canCreateTask, checkingPermission, id, user?.id, user?._id, user?.role])
-    
+
     // Check token synchronously on initial render
     const [hasToken, setHasToken] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -142,7 +144,7 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
         }
         return false
     })
-    
+
     // Update token state when authenticated state changes
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -151,7 +153,7 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
             setHasToken(tokenExists)
         }
     }, [authenticated])
-    
+
     // Standardized enabled condition - always enable if we have an ID
     // The dataProvider will handle token checking
     const shouldFetch = !!id
@@ -170,34 +172,34 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
             refetchOnReconnect: true,
         },
     })
-    
+
     // useShow returns data in queryResult property
     const { queryResult, query, refetch } = showResult || {}
     const invalidateResult = useInvalidate()
     const invalidate = invalidateResult?.invalidate || invalidateResult
-    
+
     // Extract data and states from queryResult
     const projectData = queryResult?.data
     const isLoading = queryResult?.isLoading
     const isFetching = queryResult?.isFetching
     const isError = queryResult?.isError
     const error = queryResult?.error
-    
+
     // Check if error is 403 (Forbidden)
     const isAccessDenied = error?.status === 403 || (error?.message && error.message.includes('access'))
-    
+
     // Check query status if available
     const queryStatus = query?.status || queryResult?.status
-    
+
     // Use queryResult states
     const isQueryLoading = isLoading === true || isFetching === true
     const isQueryError = isError === true
     const queryErrorObj = error
-    
+
     // Refetch when token becomes available
     useEffect(() => {
         if (hasToken && shouldFetch && refetch && !projectData) {
-            console.log('[ProjectDetails] Token available, refetching project')
+            logger.log('[ProjectDetails] Token available, refetching project')
             refetch()
         }
     }, [hasToken, shouldFetch, refetch, projectData])
@@ -206,18 +208,18 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
     // It should have a 'data' property containing the actual project
     const project = projectData?.data || projectData
     const serverTasks = project?.tasks || []
-    
+
     // Optimistic tasks state - tracks tasks added optimistically before server confirms
     const [optimisticTasks, setOptimisticTasks] = useState([])
-    
+
     // Track optimistic status updates (taskId -> new status)
     const [optimisticStatusUpdates, setOptimisticStatusUpdates] = useState(new Map())
-    
+
     // Merge server tasks with optimistic tasks and apply status updates
     const tasks = useMemo(() => {
         // Start with server tasks
         let mergedTasks = [...serverTasks]
-        
+
         // Apply optimistic status updates to server tasks
         if (optimisticStatusUpdates.size > 0) {
             mergedTasks = mergedTasks.map(task => {
@@ -228,7 +230,7 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                 return task
             })
         }
-        
+
         // Add optimistic tasks (newly created) that aren't in server yet
         if (optimisticTasks.length > 0) {
             const serverTaskIds = new Set(mergedTasks.map(t => String(t.id || t._id)))
@@ -238,10 +240,10 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
             })
             mergedTasks = [...mergedTasks, ...optimisticOnly]
         }
-        
+
         return mergedTasks
     }, [serverTasks, optimisticTasks, optimisticStatusUpdates])
-    
+
     // Clear optimistic tasks and status updates when server tasks update (they're now confirmed)
     useEffect(() => {
         if (serverTasks.length > 0) {
@@ -254,12 +256,12 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                         return !serverTaskIds.has(taskId);
                     });
                     if (filtered.length !== prev.length) {
-                        console.log('[ProjectDetails] Cleared confirmed optimistic tasks');
+                        logger.log('[ProjectDetails] Cleared confirmed optimistic tasks');
                     }
                     return filtered;
                 });
             }
-            
+
             // Clear optimistic status updates that match server status
             if (optimisticStatusUpdates.size > 0) {
                 setOptimisticStatusUpdates(prev => {
@@ -277,19 +279,19 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                         }
                     });
                     if (cleared) {
-                        console.log('[ProjectDetails] Cleared confirmed optimistic status updates');
+                        logger.log('[ProjectDetails] Cleared confirmed optimistic status updates');
                     }
                     return newMap;
                 });
             }
         }
     }, [serverTasks]);
-    
+
     // Debug: Log when tasks change
     useEffect(() => {
         if (!project) return;
         const membersCount = project?.members ? (Array.isArray(project.members) ? project.members.length : 0) : 0;
-        console.log('[ProjectDetails] Tasks updated:', {
+        logger.log('[ProjectDetails] Tasks updated:', {
             taskCount: tasks.length,
             serverTasks: serverTasks.length,
             optimisticTasks: optimisticTasks.length,
@@ -316,7 +318,7 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
     // Debug logging
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            console.log('[ProjectDetails] Debug:', {
+            logger.log('[ProjectDetails] Debug:', {
                 id,
                 hasToken,
                 authLoading,
@@ -348,7 +350,7 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
     // Show loading state: when auth is loading, query is loading, or waiting for query to start
     const isWaitingForAuth = authLoading || (!hasToken && !isError)
     const isActuallyLoading = isQueryLoading === true || (shouldFetch && !project && !isError && !projectData)
-    
+
     if (isWaitingForAuth || isActuallyLoading) {
         return (
             <div className="p-6 text-center text-zinc-900 dark:text-zinc-200">
@@ -441,16 +443,16 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                 </div>
                 {/* Show button for: role-based permission OR temporary permission OR while checking */}
                 {(canCreateTask || checkingPermission) && (
-                    <button 
-                        onClick={() => setShowCreateTask(true)} 
+                    <button
+                        onClick={() => setShowCreateTask(true)}
                         disabled={checkingPermission}
-                        className="flex items-center gap-2 px-5 py-2 text-sm rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-opacity" 
+                        className="flex items-center gap-2 px-5 py-2 text-sm rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                         title={
-                            checkingPermission 
-                                ? 'Checking permissions...' 
-                                : hasTempPermission 
-                                    ? 'You have temporary permission to create and assign tasks' 
-                                    : canCreateTaskByRoleCheck 
+                            checkingPermission
+                                ? 'Checking permissions...'
+                                : hasTempPermission
+                                    ? 'You have temporary permission to create and assign tasks'
+                                    : canCreateTaskByRoleCheck
                                         ? 'You have role-based permission to create tasks'
                                         : ''
                         }
@@ -467,7 +469,15 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                     { label: "Total Tasks", value: tasks.length, color: "text-zinc-900 dark:text-white" },
                     { label: "Completed", value: tasks.filter((t) => t.status === "DONE").length, color: "text-emerald-700 dark:text-emerald-400" },
                     { label: "In Progress", value: tasks.filter((t) => t.status === "IN_PROGRESS" || t.status === "TODO").length, color: "text-amber-700 dark:text-amber-400" },
-                    { label: "Team Members", value: project?.members?.length || 0, color: "text-blue-700 dark:text-blue-400" },
+                    {
+                        label: "Team Members",
+                        value: (() => {
+                            const uniqueMembers = new Set(project?.members?.map(m => m.id || m._id) || []);
+                            if (project?.owner) uniqueMembers.add(project.owner.id || project.owner._id);
+                            return uniqueMembers.size;
+                        })(),
+                        color: "text-blue-700 dark:text-blue-400"
+                    },
                 ].map((card, idx) => (
                     <div key={idx} className=" dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 flex justify-between sm:min-w-60 p-4 py-2.5 rounded">
                         <div>
@@ -488,9 +498,9 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                         { key: "analytics", label: "Analytics", icon: BarChart3Icon },
                         ...(canViewSettings ? [{ key: "settings", label: "Settings", icon: SettingsIcon }] : []),
                     ].map((tabItem) => (
-                        <button 
-                            key={tabItem.key} 
-                            onClick={() => { 
+                        <button
+                            key={tabItem.key}
+                            onClick={() => {
                                 setActiveTab(tabItem.key);
                                 // Update URL with tab parameter without full page navigation
                                 if (typeof window !== 'undefined' && pathname) {
@@ -499,8 +509,8 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                                     // Use replaceState to update URL without navigation
                                     window.history.replaceState({}, '', `${pathname}?${params.toString()}`);
                                 }
-                            }} 
-                            className={`flex items-center gap-2 px-4 py-2 text-sm transition-all ${activeTab === tabItem.key ? "bg-zinc-100 dark:bg-zinc-800/80" : "hover:bg-zinc-50 dark:hover:bg-zinc-700"}`} 
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2 text-sm transition-all ${activeTab === tabItem.key ? "bg-zinc-100 dark:bg-zinc-800/80" : "hover:bg-zinc-50 dark:hover:bg-zinc-700"}`}
                         >
                             <tabItem.icon className="size-3.5" />
                             {tabItem.label}
@@ -511,18 +521,18 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                 <div className="mt-6">
                     {activeTab === "tasks" && (
                         <div className=" dark:bg-zinc-900/40 rounded max-w-6xl">
-                            <ProjectTasks 
-                                tasks={tasks} 
+                            <ProjectTasks
+                                tasks={tasks}
                                 projectId={id}
                                 onTaskStatusChanged={(taskId, newStatus) => {
                                     // Update optimistic status for stats calculation
-                                    console.log('[ProjectDetails] Task status changed:', taskId, newStatus);
+                                    logger.log('[ProjectDetails] Task status changed:', taskId, newStatus);
                                     setOptimisticStatusUpdates(prev => {
                                         const newMap = new Map(prev);
                                         newMap.set(String(taskId), newStatus);
                                         return newMap;
                                     });
-                                    
+
                                     // Clear optimistic status update when server confirms (after refetch)
                                     if (refetch) {
                                         setTimeout(() => {
@@ -560,14 +570,14 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
 
             {/* Create Task Modal */}
             {showCreateTask && (
-                <CreateTaskDialog 
-                    showCreateTask={showCreateTask} 
-                    setShowCreateTask={setShowCreateTask} 
+                <CreateTaskDialog
+                    showCreateTask={showCreateTask}
+                    setShowCreateTask={setShowCreateTask}
                     projectId={id}
                     onTaskCreated={(newTask) => {
                         // OPTIMISTIC UI: Add task immediately to local state for stats
-                        console.log('[ProjectDetails] Task created, adding optimistically:', newTask);
-                        
+                        logger.log('[ProjectDetails] Task created, adding optimistically:', newTask);
+
                         // Normalize task data
                         const normalizedTask = {
                             ...newTask,
@@ -575,36 +585,36 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                             _id: newTask._id || newTask.id,
                             projectId: newTask.projectId || id,
                         };
-                        
+
                         // Add to optimistic tasks state (for stats calculation)
                         setOptimisticTasks(prev => {
                             const taskId = String(normalizedTask.id || normalizedTask._id);
                             const exists = prev.some(t => String(t.id || t._id) === taskId);
                             if (exists) {
-                                console.log('[ProjectDetails] Task already in optimistic state');
+                                logger.log('[ProjectDetails] Task already in optimistic state');
                                 return prev;
                             }
-                            console.log('[ProjectDetails] Adding task to optimistic state');
+                            logger.log('[ProjectDetails] Adding task to optimistic state');
                             return [normalizedTask, ...prev];
                         });
-                        
+
                         // Also call the optimistic add function for ProjectTasks component
                         if (typeof window !== 'undefined' && window.__addTaskOptimistically) {
-                            console.log('[ProjectDetails] Calling __addTaskOptimistically');
+                            logger.log('[ProjectDetails] Calling __addTaskOptimistically');
                             try {
                                 window.__addTaskOptimistically(normalizedTask);
-                                console.log('[ProjectDetails] Optimistic add completed');
+                                logger.log('[ProjectDetails] Optimistic add completed');
                             } catch (error) {
-                                console.error('[ProjectDetails] Error in optimistic add:', error);
+                                logger.error('[ProjectDetails] Error in optimistic add:', error);
                             }
                         } else {
-                            console.warn('[ProjectDetails] __addTaskOptimistically function not available');
+                            logger.warn('[ProjectDetails] __addTaskOptimistically function not available');
                         }
-                        
+
                         // Refetch in background to confirm (non-blocking)
                         if (refetch) {
                             setTimeout(() => {
-                                console.log('[ProjectDetails] Background refetch after 500ms');
+                                logger.log('[ProjectDetails] Background refetch after 500ms');
                                 refetch();
                             }, 500);
                         }

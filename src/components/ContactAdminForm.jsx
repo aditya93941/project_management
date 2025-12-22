@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Mail, User, Send, X } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { getApiUrl } from '../constants'
 
 const ContactAdminForm = ({ onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -10,8 +11,8 @@ const ContactAdminForm = ({ onClose, onSuccess }) => {
     email: '',
   })
   const [isLoading, setIsLoading] = useState(false)
-
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+  
+  const API_URL = getApiUrl()
 
   const handleSubmit = async (e) => {
     e.preventDefault()

@@ -7,27 +7,27 @@ import { useState, useMemo, useEffect } from "react";
 import { Plus, Search, FolderOpen } from "lucide-react";
 import ProjectCard from "../components/ProjectCard";
 import CreateProjectDialog from "../components/CreateProjectDialog";
+import { ProjectCardSkeleton } from "../components/LoadingSkeleton";
 import { useList, useIsAuthenticated, useGetIdentity } from '@refinedev/core'
 import { hasMinimumRole, UserRole } from '../utils/roles'
 
 export default function Projects() {
     const { data: authenticated, isLoading: authLoading } = useIsAuthenticated()
     const { data: user } = useGetIdentity()
-    
+
     const canCreateProject = hasMinimumRole(user?.role, UserRole.TEAM_LEAD)
-    
+
     // Check token directly - more reliable than waiting for auth check
     const [hasToken, setHasToken] = useState(false)
-    
+
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const token = localStorage.getItem('auth_token')
             const tokenExists = !!token && token.trim() !== ''
             setHasToken(tokenExists)
-            console.log('[Projects] Token check:', { tokenExists, token: token ? 'exists' : 'missing' })
         }
     }, [])
-    
+
     // Re-check token when authenticated state changes
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -36,47 +36,24 @@ export default function Projects() {
             setHasToken(tokenExists)
         }
     }, [authenticated])
-    
+
     // Enable query if we have a token (don't wait for auth check to complete)
     // This allows the request to be made immediately if token exists
     const shouldFetch = hasToken && !authLoading
-    
-    console.log('[Projects] Query enabled check:', { 
-        hasToken, 
-        authLoading, 
-        authenticated, 
-        shouldFetch 
-    })
-    
+
     const { data: projectsData, isLoading, isError, error } = useList({
         resource: 'projects',
+        pagination: {
+            pageSize: 100, // Max items per page
+        },
         queryOptions: {
             enabled: shouldFetch,
             retry: 1, // Only retry once
             refetchOnWindowFocus: false, // Don't refetch on window focus
         },
     })
-    
+
     const projects = projectsData?.data || []
-    
-    // Debug logging
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            console.log('Projects Page Debug:', {
-                authenticated,
-                authLoading,
-                hasToken,
-                shouldFetch,
-                isLoading,
-                isError,
-                error,
-                projectsCount: projects.length,
-                hasProjectsData: !!projectsData,
-                projectsDataKeys: projectsData ? Object.keys(projectsData) : [],
-                projects: projects.slice(0, 2), // First 2 projects for debugging
-            })
-        }
-    }, [authenticated, authLoading, hasToken, shouldFetch, isLoading, isError, error, projects.length, projectsData])
 
     const [searchTerm, setSearchTerm] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -118,7 +95,11 @@ export default function Projects() {
                     <p className="text-gray-500 dark:text-zinc-400 text-sm"> Manage and track your projects </p>
                 </div>
                 {canCreateProject && (
-                    <button onClick={() => setIsDialogOpen(true)} className="flex items-center px-5 py-2 text-sm rounded bg-gradient-to-br from-red-500 to-red-600 text-white hover:opacity-90 transition" >
+                    <button
+                        onClick={() => setIsDialogOpen(true)}
+                        className="flex items-center px-5 py-2 text-sm rounded bg-gradient-to-br from-red-500 to-red-600 text-white hover:opacity-90 transition"
+                        aria-label="Create new project"
+                    >
                         <Plus className="size-4 mr-2" /> New Project
                     </button>
                 )}
@@ -129,7 +110,13 @@ export default function Projects() {
             <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative w-full max-w-sm">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-zinc-400 w-4 h-4" />
-                    <input onChange={(e) => setSearchTerm(e.target.value)} value={searchTerm} className="w-full pl-10 text-sm pr-4 py-2 rounded-lg bg-white dark:bg-black border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-400 focus:border-red-500 outline-none" placeholder="Search projects..." />
+                    <input
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        value={searchTerm}
+                        className="w-full pl-10 text-sm pr-4 py-2 rounded-lg bg-white dark:bg-black border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-400 focus:border-red-500 outline-none"
+                        placeholder="Search projects..."
+                        aria-label="Search projects"
+                    />
                 </div>
                 <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="px-3 py-2 rounded-lg bg-white dark:bg-black border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white text-sm" >
                     <option value="ALL">All Status</option>
@@ -150,14 +137,11 @@ export default function Projects() {
             {/* Projects Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {isLoading ? (
-                    <div className="col-span-full text-center py-16">
-                        <div className="w-24 h-24 mx-auto mb-6 bg-gray-200 dark:bg-zinc-800 rounded-full flex items-center justify-center">
-                            <div className="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-                        </div>
-                        <p className="text-gray-500 dark:text-zinc-400 text-sm">
-                            Loading projects...
-                        </p>
-                    </div>
+                    <>
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <ProjectCardSkeleton key={i} />
+                        ))}
+                    </>
                 ) : isError ? (
                     <div className="col-span-full text-center py-16">
                         <div className="w-24 h-24 mx-auto mb-6 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
@@ -179,7 +163,7 @@ export default function Projects() {
                             No projects found
                         </h3>
                         <p className="text-gray-500 dark:text-zinc-400 mb-6 text-sm">
-                            {projects.length === 0 
+                            {projects.length === 0
                                 ? 'Create your first project to get started'
                                 : 'No projects match your filters'}
                         </p>

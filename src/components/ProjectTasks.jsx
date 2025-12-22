@@ -7,6 +7,7 @@ import { useUpdate, useDelete, useInvalidate } from '@refinedev/core';
 import Link from "next/link";
 import { Bug, CalendarIcon, GitCommit, MessageSquare, Square, Trash, XIcon, Zap } from "lucide-react";
 import UserAvatar from "./UserAvatar";
+import { logger } from '../utils/logger';
 
 const typeIcons = {
     BUG: { icon: Bug, color: "text-red-600 dark:text-red-400" },
@@ -54,7 +55,6 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
     useEffect(() => {
         if (typeof window !== 'undefined') {
             window.__addTaskOptimistically = (newTask) => {
-                console.log('[ProjectTasks] Adding task optimistically:', newTask);
                 const taskId = String(newTask.id || newTask._id || `temp-${Date.now()}`);
                 
                 // Mark as optimistic addition
@@ -75,11 +75,9 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
                         return existingId === taskId;
                     });
                     if (exists) {
-                        console.log('[ProjectTasks] Task already exists, skipping');
                         return prev;
                     }
                     
-                    console.log('[ProjectTasks] Adding new task to optimistic state');
                     // Add new task at the beginning of the list
                     return [normalizedTask, ...prev];
                 });
@@ -114,25 +112,12 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
         const lengthChanged = tasks.length !== prevTasksLengthRef.current;
         const idsChanged = newTaskIdsArray.some(id => !prevTasksIdsRef.current.has(id));
         
-        console.log('[ProjectTasks] Syncing tasks:', {
-            tasksLength: tasks.length,
-            optimisticLength: optimisticTasks.length,
-            prevLength: prevTasksLengthRef.current,
-            hasNewTasks,
-            lengthChanged,
-            idsChanged,
-            pendingUpdatesSize: currentPending.size,
-            newTaskIds: newTaskIdsArray,
-            currentTaskIds: Array.from(currentTaskIds),
-        });
-        
         // Update refs
         prevTasksLengthRef.current = tasks.length;
         prevTasksIdsRef.current = newTaskIds;
         
         // If there are new tasks OR significant changes, always sync completely
         if (hasNewTasks || (lengthChanged && idsChanged)) {
-            console.log('[ProjectTasks] New tasks detected, syncing completely');
             // Clear optimistic additions that are now confirmed by server
             const confirmedTaskIds = new Set(tasks.map(t => String(t.id || t._id)));
             optimisticAdditionsRef.current.forEach(id => {
@@ -147,11 +132,9 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
         
         // Only sync if there are no pending updates for any task
         if (currentPending.size === 0 && optimisticAdditionsRef.current.size === 0) {
-            console.log('[ProjectTasks] No pending updates or optimistic additions, syncing with server data');
             setOptimisticTasks(tasks);
         } else {
             // Merge server updates with optimistic state, ALWAYS preserving pending update values
-            console.log('[ProjectTasks] Merging with pending updates');
             setOptimisticTasks(prevOptimistic => {
                 const merged = tasks.map(serverTask => {
                     const taskId = String(serverTask.id || serverTask._id);
@@ -222,7 +205,7 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
         const oldStatus = currentTask?.status;
         
         if (!currentTask) {
-            console.error('Task not found for ID:', taskId, 'Available tasks:', optimisticTasks.map(t => ({ id: t.id, _id: t._id })));
+            logger.error('Task not found for ID:', taskId, 'Available tasks:', optimisticTasks.map(t => ({ id: t.id, _id: t._id })));
             toast.error('Task not found');
             return;
         }
@@ -247,7 +230,7 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
         
         // Notify parent component about status change (for stats update)
         if (onTaskStatusChanged && typeof onTaskStatusChanged === 'function') {
-            console.log('[ProjectTasks] Notifying parent of status change:', normalizedTaskId, newStatus);
+            logger.log('[ProjectTasks] Notifying parent of status change:', normalizedTaskId, newStatus);
             onTaskStatusChanged(normalizedTaskId, newStatus);
         }
         
@@ -275,19 +258,19 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
                                     const invalidateProject = invalidate({ resource: 'projects', id: projectId });
                                     if (invalidateProject && typeof invalidateProject.catch === 'function') {
                                         invalidateProject.catch(err => {
-                                            console.error('Error invalidating project cache:', err);
+                                            logger.error('Error invalidating project cache:', err);
                                         });
                                     }
                                 }
                                 const invalidateTasks = invalidate({ resource: 'tasks' });
                                 if (invalidateTasks && typeof invalidateTasks.catch === 'function') {
                                     invalidateTasks.catch(err => {
-                                        console.error('Error invalidating tasks cache:', err);
+                                        logger.error('Error invalidating tasks cache:', err);
                                     });
                                 }
                             }
                         } catch (error) {
-                            console.error('Error invalidating cache:', error);
+                            logger.error('Error invalidating cache:', error);
                         }
                         
                         // Remove from pending updates after server data has been fetched
@@ -388,19 +371,19 @@ const ProjectTasks = ({ tasks, projectId, onTaskAdded, onTaskStatusChanged }) =>
                             const invalidateProject = invalidate({ resource: 'projects', id: projectId });
                             if (invalidateProject && typeof invalidateProject.catch === 'function') {
                                 invalidateProject.catch(err => {
-                                    console.error('Error invalidating project cache:', err);
+                                    logger.error('Error invalidating project cache:', err);
                                 });
                             }
                         }
                         const invalidateTasks = invalidate({ resource: 'tasks' });
                         if (invalidateTasks && typeof invalidateTasks.catch === 'function') {
                             invalidateTasks.catch(err => {
-                                console.error('Error invalidating tasks cache:', err);
+                                logger.error('Error invalidating tasks cache:', err);
                             });
                         }
                     }
                 } catch (error) {
-                    console.error('Error invalidating cache:', error);
+                    logger.error('Error invalidating cache:', error);
                 }
             } catch (error) {
                 // Rollback optimistic update on error

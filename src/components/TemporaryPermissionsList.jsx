@@ -5,9 +5,10 @@ import { Clock, User, FolderOpen, X, Calendar, AlertCircle } from 'lucide-react'
 import { useList, useGetIdentity } from '@refinedev/core'
 import toast from 'react-hot-toast'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+import { getApiUrl } from '../constants'
 
 const TemporaryPermissionsList = ({ refreshTrigger }) => {
+  const API_URL = getApiUrl()
   const { data: currentUser } = useGetIdentity()
   const [permissions, setPermissions] = useState([])
   const [isLoading, setIsLoading] = useState(true)

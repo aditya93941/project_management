@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useLogin } from '@refinedev/core'
 import { useRouter } from 'next/navigation'
-import { Mail, Lock, LogIn } from 'lucide-react'
+import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const LoginForm = () => {
@@ -14,10 +14,11 @@ const LoginForm = () => {
     password: '',
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    
+
     // Basic validation
     if (!formData.email || !formData.password) {
       toast.error('Please fill in all fields')
@@ -35,9 +36,9 @@ const LoginForm = () => {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('auth-token-changed'))
         }
-        
+
         toast.success('Login successful! Redirecting...')
-        
+
         // Force navigation to dashboard after a short delay
         setTimeout(() => {
           router.push('/')
@@ -48,7 +49,7 @@ const LoginForm = () => {
         // Show specific error message from backend
         const errorMessage = error?.message || 'Login failed. Please check your credentials.'
         toast.error(errorMessage)
-        console.error('Login error:', error)
+        // Error logged by authProvider
         setIsLoading(false)
       }
     })
@@ -94,13 +95,25 @@ const LoginForm = () => {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400 dark:text-zinc-500 w-5 h-5" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="Enter your password"
-                className="w-full pl-10 pr-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-12 py-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? (
+                  <Eye className="w-5 h-5" />
+                ) : (
+                  <EyeOff className="w-5 h-5" />
+                )}
+              </button>
             </div>
           </div>
 

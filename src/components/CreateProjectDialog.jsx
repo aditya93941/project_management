@@ -98,7 +98,8 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                     const membersToAdd = formData.team_members.filter(memberId => memberId !== formData.team_lead);
 
                     if (membersToAdd.length > 0) {
-                        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+                        const { getApiUrl } = await import('../constants');
+                        const API_URL = getApiUrl();
                         const token = localStorage.getItem('auth_token');
 
                         // Add each member one by one to handle errors better

@@ -8,9 +8,10 @@ import { useGetIdentity } from '@refinedev/core'
 import { TrendingUp, CheckCircle, Clock, AlertCircle, BarChart3 } from 'lucide-react'
 import { UserRole, hasMinimumRole } from '../utils/roles'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+import { getApiUrl } from '../constants'
 
 const EODSummaries = () => {
+  const API_URL = getApiUrl()
   const { data: user } = useGetIdentity()
   const [activeTab, setActiveTab] = useState('weekly')
   const [weeklySummaries, setWeeklySummaries] = useState([])

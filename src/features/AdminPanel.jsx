@@ -4,40 +4,42 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
-import { useList, useGetIdentity, useIsAuthenticated, useUpdate } from '@refinedev/core'
-import { UserPlus, Eye, EyeOff, Edit2, Save, X, Clock, Shield, FileText } from 'lucide-react'
+import { useList, useGetIdentity, useIsAuthenticated, useUpdate, useDelete } from '@refinedev/core'
+import { UserPlus, Eye, EyeOff, Edit2, Save, X, Clock, Shield, FileText, Trash2, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import GrantTemporaryPermissionDialog from '../components/GrantTemporaryPermissionDialog'
 import TemporaryPermissionsList from '../components/TemporaryPermissionsList'
 import PermissionRequestsList from '../components/PermissionRequestsList'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+import { logger } from '../utils/logger'
+import { getApiUrl } from '../constants'
 
 const AdminPanel = () => {
+  const API_URL = getApiUrl()
   const { data: user } = useGetIdentity()
   const { data: authenticated, isLoading: authLoading } = useIsAuthenticated()
   const { mutate: updateUser } = useUpdate()
-  
+  const { mutate: deleteUser } = useDelete()
+
   // Check token directly for faster loading (same pattern as Team panel)
   const [hasToken, setHasToken] = useState(false)
-  
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('auth_token')
       setHasToken(!!token && token.trim() !== '')
     }
   }, [authenticated])
-  
+
   // Use shouldFetch pattern for immediate loading (like Team panel)
   // Enable fetch if we have token - backend will handle authorization
   const shouldFetch = hasToken && !authLoading
-  
+
   // Define isSuperAdmin before it's used in useEffect
   const isSuperAdmin = user?.role === 'MANAGER'
-  
+
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 50 // Reasonable page size for fast loading
-  
+
   const { data: usersData, refetch: refetchUsers, isLoading: isLoadingUsers, isError: isUsersError, error: usersError } = useList({
     resource: 'users',
     pagination: {
@@ -50,8 +52,8 @@ const AdminPanel = () => {
       refetchOnWindowFocus: false,
       staleTime: 30000, // Cache for 30 seconds
       onError: (error) => {
-        console.error('[AdminPanel] Error fetching users:', error)
-        console.error('[AdminPanel] Error details:', {
+        logger.error('[AdminPanel] Error fetching users:', error)
+        logger.error('[AdminPanel] Error details:', {
           message: error?.message,
           status: error?.status,
           url: error?.url || 'unknown',
@@ -63,32 +65,13 @@ const AdminPanel = () => {
       },
     },
   })
-  
-  // Debug logging
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      console.log('[AdminPanel] Debug state:', {
-        hasToken,
-        authLoading,
-        shouldFetch,
-        userRole: user?.role,
-        isSuperAdmin,
-        isLoadingUsers,
-        isUsersError,
-        usersError: usersError?.message,
-        usersData: usersData ? {
-          hasData: !!usersData.data,
-          dataLength: Array.isArray(usersData.data) ? usersData.data.length : 'not array',
-          total: usersData.total,
-        } : null,
-      })
-    }
-  }, [hasToken, authLoading, shouldFetch, user?.role, isSuperAdmin, isLoadingUsers, isUsersError, usersError, usersData])
-  
+
+  // Debug logging removed - use logger in development if needed
+
   const users = usersData?.data || []
   const totalUsers = usersData?.total || 0
   const totalPages = Math.ceil(totalUsers / pageSize)
-  
+
   // Helper function to generate initials from name
   const getInitials = (name) => {
     if (!name) return '?'
@@ -98,7 +81,7 @@ const AdminPanel = () => {
     }
     return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
   }
-  
+
   // Avatar background colors
   const avatarColors = [
     "bg-gradient-to-br from-red-500 to-red-600",
@@ -119,7 +102,7 @@ const AdminPanel = () => {
     "bg-gradient-to-br from-pink-500 to-pink-600",
     "bg-gradient-to-br from-rose-500 to-rose-600",
   ]
-  
+
   const getAvatarColor = (identifier) => {
     if (!identifier) return avatarColors[0]
     let hash = 0
@@ -129,14 +112,14 @@ const AdminPanel = () => {
     const index = Math.abs(hash) % avatarColors.length
     return avatarColors[index]
   }
-  
+
   // Helper function to render avatar (same logic as Team panel)
   const renderAvatar = (user, size = 'w-8 h-8') => {
     // Check if image is a URL (starts with http) or initials
     const isImageUrl = user.image && (user.image.startsWith('http') || user.image.startsWith('https') || user.image.startsWith('/'))
     const initials = isImageUrl ? getInitials(user.name || user.email) : (user.image || getInitials(user.name || user.email))
     const colorClass = getAvatarColor(user.name || user.email || 'default')
-    
+
     if (isImageUrl) {
       // Render actual image with fallback
       return (
@@ -157,7 +140,7 @@ const AdminPanel = () => {
         </div>
       )
     }
-    
+
     // Render initials in colored circle
     return (
       <div className={`${size} rounded-full ${colorClass} flex items-center justify-center text-white font-semibold text-xs`}>
@@ -165,7 +148,7 @@ const AdminPanel = () => {
       </div>
     )
   }
-  
+
   const [showManualCreateForm, setShowManualCreateForm] = useState(false)
   const [manualCreateForm, setManualCreateForm] = useState({
     email: '',
@@ -179,14 +162,15 @@ const AdminPanel = () => {
   const [showGrantPermissionDialog, setShowGrantPermissionDialog] = useState(false)
   const [permissionsRefreshTrigger, setPermissionsRefreshTrigger] = useState(0)
   const [requestsRefreshTrigger, setRequestsRefreshTrigger] = useState(0)
+  const [userToDelete, setUserToDelete] = useState(null)
 
   // Check if user can manage temporary permissions (MANAGER or GROUP_HEAD)
   const canManagePermissions = user?.role === 'MANAGER' || user?.role === 'GROUP_HEAD'
-  
+
   // Debug: Log user role and fetch state
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      console.log('[AdminPanel] User state:', {
+      logger.log('[AdminPanel] User state:', {
         user: user ? { id: user.id || user._id, name: user.name, role: user.role } : null,
         isSuperAdmin,
         hasToken,
@@ -271,6 +255,24 @@ const AdminPanel = () => {
     }
   }
 
+  const handleDeleteUser = () => {
+    if (!userToDelete) return
+
+    deleteUser({
+      resource: 'users',
+      id: userToDelete._id || userToDelete.id,
+    }, {
+      onSuccess: () => {
+        toast.success('User deleted successfully')
+        setUserToDelete(null)
+        refetchUsers()
+      },
+      onError: (error) => {
+        toast.error(error?.message || 'Failed to delete user')
+      }
+    })
+  }
+
   const handleCancelEdit = () => {
     setEditingUserId(null)
     setEditingRole('')
@@ -342,7 +344,7 @@ const AdminPanel = () => {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           All Users {totalUsers > 0 && `(${users.length} of ${totalUsers})`}
         </h2>
-        
+
         {isLoadingUsers ? (
           <div className="text-center py-8">
             <div className="inline-block w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
@@ -433,10 +435,20 @@ const AdminPanel = () => {
                         ) : (
                           <button
                             onClick={() => handleEditRole(userItem._id || userItem.id, userItem.role)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                             title="Edit Role"
                           >
                             <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {isSuperAdmin && (userItem._id !== user.id && userItem.id !== user.id) && (
+                          <button
+                            onClick={() => setUserToDelete(userItem)}
+                            className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                            title="Delete User"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </div>
@@ -445,7 +457,7 @@ const AdminPanel = () => {
                 ))}
               </tbody>
             </table>
-            
+
             {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
@@ -627,6 +639,38 @@ const AdminPanel = () => {
           setPermissionsRefreshTrigger((prev) => prev + 1)
         }}
       />
+      {/* Delete Confirmation Dialog */}
+      {userToDelete && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl p-6 w-full max-w-sm">
+            <div className="flex items-center gap-3 text-red-600 dark:text-red-500 mb-4">
+              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete User?</h3>
+            </div>
+
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Are you sure you want to delete <strong>{userToDelete.name}</strong>? This action cannot be undone.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setUserToDelete(null)}
+                className="flex-1 px-4 py-2 border border-zinc-300 dark:border-zinc-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

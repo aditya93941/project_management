@@ -11,9 +11,10 @@ import { UserRole, hasMinimumRole } from '../utils/roles'
 import Link from 'next/link'
 import { format } from 'date-fns'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+import { getApiUrl } from '../constants'
 
 const EODManagerView = () => {
+  const API_URL = getApiUrl()
   const { data: user } = useGetIdentity()
   const { data: authenticated, isLoading: authLoading } = useIsAuthenticated()
   
