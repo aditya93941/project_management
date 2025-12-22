@@ -8,8 +8,8 @@ export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
 export const metadata = {
-  title: 'Project Management',
-  description: 'An open-source project management platform',
+  title: 'Position2 | Internal Project Management',
+  description: 'Position2 internal project management platform. Manage projects, tasks, and teams with role-based permissions, EOD reports, analytics, and workspace collaboration.',
 }
 
 export default function RootLayout({ children }) {
