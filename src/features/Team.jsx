@@ -15,6 +15,8 @@ const Team = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [userToEdit, setUserToEdit] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 50; // Same as AdminPanel for consistency
     const { data: authenticated, isLoading: authLoading } = useIsAuthenticated();
     const { data: user } = useGetIdentity();
     
@@ -36,6 +38,10 @@ const Team = () => {
     
     const { data: usersData, isLoading: isLoadingUsers } = useList({
         resource: 'users',
+        pagination: {
+            current: currentPage,
+            pageSize: pageSize,
+        },
         queryOptions: {
             enabled: shouldFetch,
         },
@@ -49,16 +55,30 @@ const Team = () => {
     })
     
     const users = usersData?.data || []
+    const totalUsers = usersData?.total || 0
+    const totalPages = Math.ceil(totalUsers / pageSize)
     const projects = projectsData?.data || []
     const isLoading = isLoadingUsers || isLoadingProjects
 
     const filteredUsers = useMemo(() => {
+        // If searching, filter the current page's users
+        // Note: For better UX, you might want to implement server-side search
+        if (!searchTerm.trim()) {
+            return users;
+        }
         return users.filter(
             (user) =>
                 user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 user?.email?.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [users, searchTerm]);
+
+    // Reset to page 1 when search term changes
+    useEffect(() => {
+        if (searchTerm.trim()) {
+            setCurrentPage(1);
+        }
+    }, [searchTerm]);
 
     const tasks = useMemo(() => {
         return projects.reduce((acc, project) => [...acc, ...(project.tasks || [])], []) || [];
@@ -112,7 +132,7 @@ const Team = () => {
                     <div className="flex items-center justify-between gap-8 md:gap-22">
                         <div>
                             <p className="text-sm text-gray-500 dark:text-zinc-400">Total Members</p>
-                            <p className="text-xl font-bold text-gray-900 dark:text-white">{users.length}</p>
+                            <p className="text-xl font-bold text-gray-900 dark:text-white">{totalUsers}</p>
                         </div>
                         <div className="p-3 rounded-xl bg-blue-100 dark:bg-red-500/10">
                             <UsersIcon className="size-4 text-red-500 dark:text-blue-200" />
@@ -277,6 +297,34 @@ const Team = () => {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Pagination Controls */}
+                {!isLoading && filteredUsers.length > 0 && totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 dark:border-zinc-800">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalUsers)} of {totalUsers} members
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentPage === 1}
+                                className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-gray-700 dark:text-gray-300"
+                            >
+                                Previous
+                            </button>
+                            <span className="text-sm text-gray-600 dark:text-gray-400 px-2">
+                                Page {currentPage} of {totalPages}
+                            </span>
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-gray-700 dark:text-gray-300"
+                            >
+                                Next
+                            </button>
                         </div>
                     </div>
                 )}
