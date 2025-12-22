@@ -12,6 +12,7 @@ export const metadata = {
   description: 'Position2 internal project management platform. Manage projects, tasks, and teams with role-based permissions, EOD reports, analytics, and workspace collaboration.',
 }
 
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
