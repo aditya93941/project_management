@@ -174,6 +174,21 @@ export const dataProvider = (apiUrl: string): DataProvider => {
         })
       }
 
+      // Special handling for projects - always include members for accurate member counts
+      if (resource === 'projects') {
+        url.searchParams.set('includeMembers', 'true')
+      }
+
+      // Handle meta parameters (for includeMembers, includeTasks, etc.)
+      if (meta) {
+        if (meta.includeMembers) {
+          url.searchParams.set('includeMembers', 'true')
+        }
+        if (meta.includeTasks) {
+          url.searchParams.set('includeTasks', 'true')
+        }
+      }
+
       const authHeaders = getAuthHeaders()
       
       // Add timeout to prevent hanging requests

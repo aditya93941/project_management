@@ -102,14 +102,31 @@ const ProjectOverview = () => {
 
                                 <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-500">
                                     <div className="flex items-center gap-4">
-                                        {/* Members count - include owner in count */}
+                                        {/* Members count - same logic as ProjectDetails */}
                                         <div className="flex items-center gap-1">
                                             <UsersIcon className="w-3 h-3" />
                                             {(() => {
-                                                const uniqueMembers = new Set(project?.members?.map(m => m.id || m._id) || []);
-                                                if (project?.owner) {
-                                                    uniqueMembers.add(project.owner.id || project.owner._id);
+                                                // Count unique user IDs from members - EXACT same logic as ProjectDetails
+                                                // Members have userId populated, so we need to extract the user ID
+                                                const uniqueMembers = new Set();
+                                                
+                                                if (project?.members && Array.isArray(project.members)) {
+                                                    project.members.forEach(member => {
+                                                        // Handle populated userId (object with _id/id) - this is how backend returns it
+                                                        if (member.userId && typeof member.userId === 'object') {
+                                                            const userId = member.userId._id || member.userId.id;
+                                                            if (userId) uniqueMembers.add(String(userId));
+                                                        }
+                                                        // Note: If userId is not populated, we can't count it (would need to fetch)
+                                                    });
                                                 }
+                                                
+                                                // Also include team_lead if exists (team_lead is always populated)
+                                                if (project?.team_lead) {
+                                                    const teamLeadId = project.team_lead._id || project.team_lead.id || project.team_lead;
+                                                    if (teamLeadId) uniqueMembers.add(String(teamLeadId));
+                                                }
+                                                
                                                 return uniqueMembers.size;
                                             })()} members
                                         </div>

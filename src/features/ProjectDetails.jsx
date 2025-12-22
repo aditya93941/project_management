@@ -459,8 +459,27 @@ export default function ProjectDetails({ id: propId, tab: propTab }) {
                     {
                         label: "Team Members",
                         value: (() => {
-                            const uniqueMembers = new Set(project?.members?.map(m => m.id || m._id) || []);
-                            if (project?.owner) uniqueMembers.add(project.owner.id || project.owner._id);
+                            // Count unique user IDs from members (same logic as ProjectSettings)
+                            // Members have userId populated, so we need to extract the user ID
+                            const uniqueMembers = new Set();
+                            
+                            if (project?.members && Array.isArray(project.members)) {
+                                project.members.forEach(member => {
+                                    // Handle populated userId (object with _id/id) - this is how backend returns it
+                                    if (member.userId && typeof member.userId === 'object') {
+                                        const userId = member.userId._id || member.userId.id;
+                                        if (userId) uniqueMembers.add(String(userId));
+                                    }
+                                    // Note: If userId is not populated, we can't count it (would need to fetch)
+                                });
+                            }
+                            
+                            // Also include team_lead if exists (team_lead is always populated)
+                            if (project?.team_lead) {
+                                const teamLeadId = project.team_lead._id || project.team_lead.id || project.team_lead;
+                                if (teamLeadId) uniqueMembers.add(String(teamLeadId));
+                            }
+                            
                             return uniqueMembers.size;
                         })(),
                         color: "text-blue-700 dark:text-blue-400"
