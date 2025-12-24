@@ -15,6 +15,7 @@ import EditTaskDialog from "../components/EditTaskDialog";
 import DeleteConfirmationDialog from "../components/DeleteConfirmationDialog";
 import { hasMinimumRole, UserRole } from '../utils/roles'
 import { TaskDetailsSkeleton } from '../components/LoadingSkeleton'
+import { getApiUrl } from '../constants'
 
 const TaskDetails = ({ projectId: propProjectId, taskId: propTaskId }) => {
     const searchParams = useSearchParams();
@@ -77,6 +78,42 @@ const TaskDetails = ({ projectId: propProjectId, taskId: propTaskId }) => {
             refetch()
         }
     }, [hasToken, shouldFetch, refetch, taskData])
+
+    // Track user viewing this task (for notification filtering)
+    useEffect(() => {
+        if (!taskId || !user?.id || !hasToken) return
+
+        const API_URL = getApiUrl()
+        
+        // Send heartbeat to mark user as viewing this task
+        const sendViewingHeartbeat = async () => {
+            try {
+                const token = localStorage.getItem('auth_token')
+                if (!token) return
+
+                await fetch(`${API_URL}/tasks/${taskId}/viewing`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                })
+            } catch (error) {
+                // Silently fail - this is non-critical
+                console.debug('Failed to send viewing heartbeat:', error)
+            }
+        }
+
+        // Send immediately
+        sendViewingHeartbeat()
+
+        // Send heartbeat every 10 seconds while component is mounted
+        const interval = setInterval(sendViewingHeartbeat, 10000)
+
+        return () => {
+            clearInterval(interval)
+        }
+    }, [taskId, user?.id, hasToken])
 
     // Extract task from queryResult data
     // taskData from queryResult is already the normalized data object

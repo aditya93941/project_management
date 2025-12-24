@@ -103,8 +103,8 @@ const ProjectOverview = () => {
                                 <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-500">
                                     <div className="flex items-center gap-4">
                                         {/* Members count - same logic as ProjectDetails */}
-                                        <div className="flex items-center gap-1">
-                                            <UsersIcon className="w-3 h-3" />
+                                            <div className="flex items-center gap-1">
+                                                <UsersIcon className="w-3 h-3" />
                                             {(() => {
                                                 // Count unique user IDs from members - EXACT same logic as ProjectDetails
                                                 // Members have userId populated, so we need to extract the user ID
@@ -129,7 +129,7 @@ const ProjectOverview = () => {
                                                 
                                                 return uniqueMembers.size;
                                             })()} members
-                                        </div>
+                                            </div>
                                         {project.end_date && (
                                             <div className="flex items-center gap-1">
                                                 <Calendar className="w-3 h-3" />

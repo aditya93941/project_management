@@ -112,18 +112,20 @@ const Team = () => {
                     </p>
                 </div>
                 {false && canInviteMembers && (
-                    <>
-                        <button onClick={handleInviteClick} className="flex items-center px-5 py-2 rounded text-sm bg-gradient-to-br from-red-500 to-red-600 hover:opacity-90 text-white transition" >
-                            <UserPlus className="w-4 h-4 mr-2" /> Add Team Member
-                        </button>
-                        <InviteMemberDialog 
-                            isDialogOpen={isDialogOpen} 
-                            setIsDialogOpen={setIsDialogOpen} 
-                            userToEdit={userToEdit}
-                        />
-                    </>
+                    <button onClick={handleInviteClick} className="flex items-center px-5 py-2 rounded text-sm bg-gradient-to-br from-red-500 to-red-600 hover:opacity-90 text-white transition" >
+                        <UserPlus className="w-4 h-4 mr-2" /> Add Team Member
+                    </button>
                 )}
             </div>
+
+            {/* InviteMemberDialog - moved outside to allow editing even when invite button is hidden */}
+            {canInviteMembers && (
+                <InviteMemberDialog 
+                    isDialogOpen={isDialogOpen} 
+                    setIsDialogOpen={setIsDialogOpen} 
+                    userToEdit={userToEdit}
+                />
+            )}
 
             {/* Stats Cards */}
             <div className="flex flex-wrap gap-4">

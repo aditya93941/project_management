@@ -42,6 +42,33 @@ const EODReports = () => {
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   }
   
+  // Get default notification alert time (6:30 PM, or current time if after 6:30 PM)
+  // Also handles edge cases: already scheduled reports, already submitted reports
+  const getDefaultNotificationTime = () => {
+    // If already scheduled, use that time (if it's in the future)
+    if (todayEOD?.scheduledSubmitAt) {
+      const scheduled = new Date(todayEOD.scheduledSubmitAt)
+      const now = new Date()
+      // Only use scheduled time if it's in the future
+      if (scheduled > now) {
+        const hours = String(scheduled.getHours()).padStart(2, '0')
+        const minutes = String(scheduled.getMinutes()).padStart(2, '0')
+        return `${hours}:${minutes}`
+      }
+    }
+    
+    // If already submitted and not editable, shouldn't reach here, but fallback
+    // Note: isSubmitted and isEditable are defined later, so we check todayEOD directly
+    if (todayEOD?.status === 'SUBMITTED' && todayEOD?.editable === false) {
+      return getCurrentTime()
+    }
+    
+    const currentTime = getCurrentTime()
+    const defaultTime = '18:30'
+    // If current time is after 6:30 PM, use current time; otherwise use 6:30 PM
+    return currentTime > defaultTime ? currentTime : defaultTime
+  }
+  
   // Get end of day time (11:59 PM)
   const getEndOfDayTime = () => {
     return '23:59'
@@ -1246,6 +1273,38 @@ const EODReports = () => {
   const hasScheduledSubmit = todayEOD?.scheduledSubmitAt && new Date(todayEOD.scheduledSubmitAt) > new Date()
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
+  // Handler for opening schedule modal with validation
+  const handleOpenScheduleModal = () => {
+    // Check if report is final (cannot schedule)
+    if (isFinal) {
+      toast.error('Final reports cannot be scheduled')
+      return
+    }
+    
+    // Check if report is already submitted and not editable
+    if (isSubmitted && !isEditable) {
+      toast.error('This report is already submitted and cannot be scheduled')
+      return
+    }
+    
+    setShowScheduleModal(true)
+    setShowSubmitDropdown(false)
+    
+    // Pre-populate scheduled time if already scheduled
+    if (todayEOD?.scheduledSubmitAt) {
+      const scheduled = new Date(todayEOD.scheduledSubmitAt)
+      const now = new Date()
+      // Only pre-populate if scheduled time is in the future
+      if (scheduled > now) {
+        const hours = String(scheduled.getHours()).padStart(2, '0')
+        const minutes = String(scheduled.getMinutes()).padStart(2, '0')
+        setScheduledTimeOnly(`${hours}:${minutes}`)
+        // Also set the full scheduled time
+        setScheduledTime(scheduled.toISOString())
+      }
+    }
+  }
+
   // Get selected task IDs (excluding plan tasks, as they can overlap)
   const selectedTaskIds = new Set([
     ...formData.completedTasks.map(t => t.taskId),
@@ -2045,20 +2104,26 @@ const EODReports = () => {
                         onClick={() => setShowSubmitDropdown(false)}
                       />
                       <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-800 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-700 z-30">
-                        <button
-                          onClick={() => {
-                            setShowScheduleModal(true)
-                            setShowSubmitDropdown(false)
-                          }}
-                          disabled={isSubmitting}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors rounded-lg"
-                        >
-                          <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">Schedule Submit</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Submit at a specific time</div>
-                          </div>
-                        </button>
+                        {/* Only show schedule button if report is editable and not final */}
+                        {isEditable && !isFinal && (
+                          <button
+                            onClick={handleOpenScheduleModal}
+                            disabled={isSubmitting}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {todayEOD?.scheduledSubmitAt ? 'Reschedule Submit' : 'Schedule Submit'}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {todayEOD?.scheduledSubmitAt 
+                                  ? `Currently: ${new Date(todayEOD.scheduledSubmitAt).toLocaleTimeString()}`
+                                  : 'Submit at a specific time'}
+                              </div>
+                            </div>
+                          </button>
+                        )}
                       </div>
                     </>
                   )}
@@ -2100,7 +2165,7 @@ const EODReports = () => {
                     </label>
                     <input
                       type="time"
-                      value={scheduledTimeOnly || getCurrentTime()}
+                      value={scheduledTimeOnly || getDefaultNotificationTime()}
                       onChange={(e) => {
                         const selectedTime = e.target.value
                         const currentTime = getCurrentTime()
